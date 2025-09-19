@@ -1,10 +1,15 @@
 
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ejemplo.supabase.co'
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ejemplo.clave.temporal'
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
+
+// Función helper para verificar si Supabase está configurado correctamente
+export const isSupabaseConfigured = () => {
+  return supabaseUrl !== 'https://ejemplo.supabase.co' && supabaseKey !== 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ejemplo.clave.temporal'
+}
 
 // Tipos TypeScript
 export interface Specialty {

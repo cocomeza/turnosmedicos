@@ -1,27 +1,80 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { supabase, Specialty } from '../lib/supabase'
+import { supabase, Specialty, isSupabaseConfigured } from '../lib/supabase'
 import SpecialtySearch from '../components/SpecialtySearch'
 import DoctorList from '../components/DoctorList'
 import AppointmentBooking from '../components/AppointmentBooking'
+
+// Datos de ejemplo para mostrar la interfaz cuando Supabase no está configurado
+const mockSpecialties: Specialty[] = [
+  {
+    id: '1',
+    name: 'Cardiología',
+    description: 'Especialista en corazón y sistema cardiovascular'
+  },
+  {
+    id: '2',
+    name: 'Dermatología',
+    description: 'Cuidado de la piel, cabello y uñas'
+  },
+  {
+    id: '3',
+    name: 'Neurología',
+    description: 'Especialista en sistema nervioso y cerebro'
+  },
+  {
+    id: '4',
+    name: 'Pediatría',
+    description: 'Atención médica especializada para niños'
+  },
+  {
+    id: '5',
+    name: 'Traumatología',
+    description: 'Tratamiento de lesiones y fracturas'
+  },
+  {
+    id: '6',
+    name: 'Ginecología',
+    description: 'Salud reproductiva y cuidado femenino'
+  }
+]
 
 export default function Home() {
   const [specialties, setSpecialties] = useState<Specialty[]>([])
   const [selectedSpecialty, setSelectedSpecialty] = useState<string | null>(null)
   const [selectedDoctor, setSelectedDoctor] = useState<string | null>(null)
+  const [supabaseEnabled, setSupabaseEnabled] = useState(false)
 
   useEffect(() => {
-    fetchSpecialties()
+    const configured = isSupabaseConfigured()
+    setSupabaseEnabled(configured)
+    
+    if (configured) {
+      fetchSpecialties()
+    } else {
+      // Usar datos de ejemplo si Supabase no está configurado
+      setSpecialties(mockSpecialties)
+    }
   }, [])
 
   const fetchSpecialties = async () => {
-    const { data, error } = await supabase
-      .from('specialties')
-      .select('*')
-      .order('name')
-    
-    if (data) setSpecialties(data)
-    if (error) console.error('Error fetching specialties:', error)
+    try {
+      const { data, error } = await supabase
+        .from('specialties')
+        .select('*')
+        .order('name')
+      
+      if (data) setSpecialties(data)
+      if (error) {
+        console.error('Error fetching specialties:', error)
+        // Fallback a datos de ejemplo si hay error
+        setSpecialties(mockSpecialties)
+      }
+    } catch (error) {
+      console.error('Error connecting to Supabase:', error)
+      // Usar datos de ejemplo si hay problemas de conexión
+      setSpecialties(mockSpecialties)
+    }
   }
 
   return (
@@ -34,6 +87,18 @@ export default function Home() {
             </h1>
           </div>
         </div>
+        {!supabaseEnabled && (
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+            <div className="flex">
+              <div className="ml-3">
+                <p className="text-sm text-yellow-700">
+                  <span className="font-medium">Modo de demostración:</span> 
+                  {' '}Configurar Supabase para habilitar todas las funcionalidades.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
