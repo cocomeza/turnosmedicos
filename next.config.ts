@@ -1,12 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  experimental: {
-    allowedOrigins: ["*"],
-  },
-  async rewrites() {
-    return [];
-  },
   async headers() {
     return [
       {
