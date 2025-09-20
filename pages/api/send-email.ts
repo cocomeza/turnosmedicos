@@ -66,7 +66,7 @@ export default async function handler(
     }
 
     // Configurar transporte
-    const transporter = nodemailer.createTransport({
+    const transporter = nodemailer.createTransporter({
       host: "smtp.gmail.com",
       port: 465,
       secure: true,
@@ -93,11 +93,133 @@ export default async function handler(
       { locale: es }
     );
 
-    // Contenidos de email (te dejo tal cual estaban, no cambia nada de HTML)
-    const patientEmailContent = `...`; // ⬅️ tu HTML del paciente aquí
-    const patientTextContent = `...`;  // ⬅️ tu texto plano del paciente aquí
-    const officeEmailContent = `...`;  // ⬅️ tu HTML del consultorio aquí
-    const officeTextContent = `...`;   // ⬅️ tu texto plano del consultorio aquí
+    // Email para el paciente
+    const patientEmailContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Confirmación de Turno Médico</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0;">✅ Turno Confirmado</h1>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
+            <h2 style="color: #2c3e50;">Hola ${patientName},</h2>
+            <p style="font-size: 16px;">Tu turno médico ha sido confirmado exitosamente.</p>
+            
+            <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea;">
+              <h3 style="color: #2c3e50; margin-top: 0;">📋 Detalles de tu cita:</h3>
+              <p><strong>👨‍⚕️ Médico:</strong> Dr. ${doctorName}</p>
+              <p><strong>🏥 Especialidad:</strong> ${specialtyName}</p>
+              <p><strong>📅 Fecha:</strong> ${formattedDate}</p>
+              <p><strong>🕐 Hora:</strong> ${appointmentTime}</p>
+            </div>
+            
+            <div style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #27ae60; margin-top: 0;">💡 Recordatorios importantes:</h3>
+              <ul style="margin: 10px 0;">
+                <li>Llega 15 minutos antes de tu cita</li>
+                <li>Trae tu documento de identidad</li>
+                <li>Trae tu obra social (si tienes)</li>
+                <li>Si tienes estudios previos, tráelos</li>
+              </ul>
+            </div>
+            
+            <p style="color: #666; font-size: 14px; margin-top: 30px;">
+              Si necesitas cancelar o reprogramar tu cita, por favor contáctanos con anticipación.
+            </p>
+            
+            <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+              <p style="color: #888; font-size: 12px;">Sistema de Turnos Médicos</p>
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const patientTextContent = `
+      CONFIRMACIÓN DE TURNO MÉDICO
+      
+      Hola ${patientName},
+      
+      Tu turno médico ha sido confirmado:
+      
+      Médico: Dr. ${doctorName}
+      Especialidad: ${specialtyName}
+      Fecha: ${formattedDate}
+      Hora: ${appointmentTime}
+      
+      RECORDATORIOS:
+      - Llega 15 minutos antes
+      - Trae tu documento de identidad
+      - Trae tu obra social (si tienes)
+      - Si tienes estudios previos, tráelos
+      
+      Sistema de Turnos Médicos
+    `;
+
+    // Email para el consultorio
+    const officeEmailContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Nuevo Turno Reservado</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0;">🏥 Nuevo Turno Reservado</h1>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
+            <h2 style="color: #2c3e50;">Detalles de la Reserva</h2>
+            
+            <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f093fb;">
+              <h3 style="color: #2c3e50; margin-top: 0;">👨‍⚕️ Información del Médico:</h3>
+              <p><strong>Médico:</strong> Dr. ${doctorName}</p>
+              <p><strong>Especialidad:</strong> ${specialtyName}</p>
+              <p><strong>Fecha:</strong> ${formattedDate}</p>
+              <p><strong>Hora:</strong> ${appointmentTime}</p>
+            </div>
+            
+            <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #28a745;">
+              <h3 style="color: #2c3e50; margin-top: 0;">👤 Información del Paciente:</h3>
+              <p><strong>Nombre:</strong> ${patientName}</p>
+              <p><strong>Email:</strong> ${patientEmail}</p>
+              <p><strong>Teléfono:</strong> ${patientPhone}</p>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+              <p style="color: #888; font-size: 12px;">Sistema de Turnos Médicos - Notificación Automática</p>
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const officeTextContent = `
+      NUEVO TURNO RESERVADO
+      
+      MÉDICO:
+      Dr. ${doctorName}
+      Especialidad: ${specialtyName}
+      Fecha: ${formattedDate}
+      Hora: ${appointmentTime}
+      
+      PACIENTE:
+      Nombre: ${patientName}
+      Email: ${patientEmail}
+      Teléfono: ${patientPhone}
+      
+      Sistema de Turnos Médicos
+    `;
 
     const patientMailOptions = {
       from: `"${process.env.EMAIL_FROM_NAME || "Sistema de Turnos"}" <${
