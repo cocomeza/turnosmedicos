@@ -145,6 +145,35 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
         throw new Error('Error al crear el turno')
       }
 
+      // Enviar emails de confirmación
+      try {
+        const emailResponse = await fetch('/api/send-email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            doctorName: doctor?.name,
+            specialtyName: doctor?.specialty?.name,
+            patientName: patientInfo.name,
+            patientEmail: patientInfo.email,
+            patientPhone: patientInfo.phone,
+            appointmentDate: format(selectedDate, 'yyyy-MM-dd'),
+            appointmentTime: selectedTime,
+          }),
+        });
+
+        const emailResult = await emailResponse.json();
+        
+        if (!emailResult.success) {
+          console.warn('Error al enviar emails:', emailResult.error);
+          // No interrumpimos el flujo si falla el email, solo lo registramos
+        }
+      } catch (emailError) {
+        console.warn('Error al enviar emails de confirmación:', emailError);
+        // No interrumpimos el flujo si falla el email
+      }
+
       setShowConfirmModal(false)
       setShowSuccessModal(true)
     } catch (error) {
