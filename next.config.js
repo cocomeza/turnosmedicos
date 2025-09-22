@@ -11,6 +11,11 @@ const nextConfig = {
     // Ignorar errores de ESLint durante build
     ignoreDuringBuilds: true,
   },
+
+  // Configuración específica para Replit
+  devIndicators: {
+    buildActivity: false,
+  },
   
   // Configuración para Replit/Vercel
   async headers() {
