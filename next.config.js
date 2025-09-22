@@ -12,6 +12,11 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
 
+  // Configuración para permitir Replit preview
+  experimental: {
+    allowedDevOrigins: ['*']
+  },
+
   
   // Configuración para Replit/Vercel
   async headers() {
