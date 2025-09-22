@@ -12,10 +12,6 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
 
-  // Configuración específica para Replit
-  devIndicators: {
-    buildActivity: false,
-  },
   
   // Configuración para Replit/Vercel
   async headers() {
@@ -48,10 +44,8 @@ const nextConfig = {
     ];
   },
 
-  // Configuración adicional para resolver módulos
-  experimental: {
-    serverComponentsExternalPackages: ['nodemailer'],
-  },
+  // Configuración para módulos externos en server components
+  serverExternalPackages: ['nodemailer'],
 
   // Webpack config para resolver el problema de módulos
   webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
