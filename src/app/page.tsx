@@ -1,5 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { Settings } from 'lucide-react'
 import { supabase, Specialty, isSupabaseConfigured } from '../lib/supabase'
 import SpecialtySearch from '../components/SpecialtySearch'
 import DoctorList from '../components/DoctorList'
@@ -85,6 +87,13 @@ export default function Home() {
             <h1 className="text-3xl font-bold text-gray-900">
               Sistema de Turnos Médicos
             </h1>
+            <Link
+              href="/admin"
+              className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Panel Administrativo
+            </Link>
           </div>
         </div>
         {!supabaseEnabled && (
