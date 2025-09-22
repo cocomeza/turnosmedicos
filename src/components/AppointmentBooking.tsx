@@ -507,16 +507,20 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
               >
                 <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
                   <div className="text-center">
-                    <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
-                      <CheckCircle className="h-6 w-6 text-green-600" />
+                    <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-gradient-to-r from-green-400 to-green-600 mb-6 animate-pulse">
+                      <CheckCircle className="h-8 w-8 text-white" />
                     </div>
-                    <Dialog.Title as="h3" className="text-lg font-semibold text-gray-900 mb-2">
-                      ¡Turno Reservado Exitosamente!
+                    <Dialog.Title as="h3" className="text-2xl font-bold text-gray-900 mb-3">
+                      ✅ ¡Turno Reservado con Éxito!
                     </Dialog.Title>
-                    <p className="text-sm text-gray-600 mb-6">
-                      Hemos enviado los detalles de tu cita a tu correo electrónico. 
-                      El Dr. {doctor?.name} te estará esperando.
-                    </p>
+                    <div className="bg-green-50 p-4 rounded-xl mb-6">
+                      <p className="text-green-800 font-medium mb-2">
+                        🎉 Tu cita médica ha sido confirmada
+                      </p>
+                      <p className="text-sm text-green-700">
+                        El consultorio ha sido notificado y el Dr. {doctor?.name} te estará esperando en la fecha programada.
+                      </p>
+                    </div>
                     
                     <div className="bg-green-50 p-4 rounded-xl mb-6 text-left">
                       <h4 className="font-medium text-green-900 mb-2">Recordatorio</h4>
