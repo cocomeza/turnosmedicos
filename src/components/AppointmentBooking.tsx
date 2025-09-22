@@ -1,9 +1,9 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { ArrowLeft, Calendar, Clock, User, CheckCircle, XCircle, AlertCircle, Phone, Mail } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { ArrowLeft, Calendar, Clock, User, CheckCircle, AlertCircle, Phone, Mail } from 'lucide-react'
 import { Dialog, Transition } from '@headlessui/react'
 import { supabase, Doctor } from '../lib/supabase'
-import { format, addDays, isSameDay, startOfDay, setHours, setMinutes, addMinutes } from 'date-fns'
+import { format, isSameDay, setHours, setMinutes, addMinutes } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Fragment } from 'react'
 import DatePicker from 'react-datepicker'
@@ -29,19 +29,7 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
   const [isBooking, setIsBooking] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const nextWeekDays = Array.from({ length: 7 }, (_, i) => addDays(new Date(), i + 1))
-
-  useEffect(() => {
-    fetchDoctor()
-  }, [doctorId])
-
-  useEffect(() => {
-    if (selectedDate) {
-      fetchAvailableTimes()
-    }
-  }, [selectedDate])
-
-  const fetchDoctor = async () => {
+  const fetchDoctor = useCallback(async () => {
     const { data, error } = await supabase
       .from('doctors')
       .select(`
@@ -53,9 +41,9 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
     
     if (data) setDoctor(data)
     if (error) console.error('Error fetching doctor:', error)
-  }
+  }, [doctorId])
 
-  const fetchAvailableTimes = async () => {
+  const fetchAvailableTimes = useCallback(async () => {
     if (!selectedDate) return
 
     const dayOfWeek = selectedDate.getDay()
@@ -100,7 +88,17 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
     }
 
     setAvailableTimes(times)
-  }
+  }, [selectedDate, doctorId])
+
+  useEffect(() => {
+    fetchDoctor()
+  }, [fetchDoctor])
+
+  useEffect(() => {
+    if (selectedDate) {
+      fetchAvailableTimes()
+    }
+  }, [fetchAvailableTimes])
 
   const handleBookAppointment = async () => {
     if (!selectedDate || !selectedTime || !patientInfo.name || !patientInfo.email) {
@@ -131,7 +129,7 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
       }
 
       // Crear turno
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('appointments')
         .insert([{
           doctor_id: doctorId,
