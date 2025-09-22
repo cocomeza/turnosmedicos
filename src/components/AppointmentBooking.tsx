@@ -71,7 +71,7 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
 
     const bookedTimes = existingAppointments?.map(apt => apt.appointment_time) || []
 
-    // Generar horarios disponibles (cada 30 minutos) - más seguro contra timezones
+    // Generar horarios disponibles (cada 30 minutos)
     const times = []
     const [startHour, startMin] = schedule.start_time.split(':').map(Number)
     const [endHour, endMin] = schedule.end_time.split(':').map(Number)
@@ -102,34 +102,41 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
 
   const handleBookAppointment = async () => {
     if (!selectedDate || !selectedTime || !patientInfo.name || !patientInfo.email) {
-      return // La validación ahora se maneja en el modal
+      setError('Por favor completa todos los campos obligatorios')
+      return
     }
 
     setIsBooking(true)
+    setError(null)
     
     try {
       // Crear o buscar paciente
-      let { data: patient } = await supabase
+      let { data: patient, error: patientError } = await supabase
         .from('patients')
         .select('id')
         .eq('email', patientInfo.email)
         .single()
 
       if (!patient) {
-        const { data: newPatient, error } = await supabase
+        const { data: newPatient, error: createPatientError } = await supabase
           .from('patients')
-          .insert([patientInfo])
+          .insert([{
+            name: patientInfo.name,
+            email: patientInfo.email,
+            phone: patientInfo.phone
+          }])
           .select('id')
           .single()
         
-        if (error) {
-          throw new Error('Error al crear paciente')
+        if (createPatientError) {
+          console.error('Error creating patient:', createPatientError)
+          throw new Error('Error al registrar información del paciente')
         }
         patient = newPatient
       }
 
       // Crear turno
-      const { error } = await supabase
+      const { data: newAppointment, error: appointmentError } = await supabase
         .from('appointments')
         .insert([{
           doctor_id: doctorId,
@@ -138,59 +145,60 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
           appointment_time: selectedTime,
           status: 'scheduled'
         }])
+        .select()
+        .single()
 
-      if (error) {
-        throw new Error('Error al crear el turno')
+      if (appointmentError) {
+        console.error('Error creating appointment:', appointmentError)
+        throw new Error('Error al crear el turno médico')
       }
 
-      // Enviar emails de confirmación
-      try {
-        const emailResponse = await fetch('/api/send-email', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            doctorName: doctor?.name,
-            specialtyName: doctor?.specialty?.name,
-            patientName: patientInfo.name,
-            patientEmail: patientInfo.email,
-            patientPhone: patientInfo.phone,
-            appointmentDate: format(selectedDate, 'yyyy-MM-dd'),
-            appointmentTime: selectedTime,
-          }),
-        });
-
-        const emailResult = await emailResponse.json();
-        
-        if (!emailResult.success) {
-          console.warn('Error al enviar emails:', emailResult.error);
-          // No interrumpimos el flujo si falla el email, solo lo registramos
-        }
-      } catch (emailError) {
-        console.warn('Error al enviar emails de confirmación:', emailError);
-        // No interrumpimos el flujo si falla el email
-      }
-
+      console.log('Turno creado exitosamente:', newAppointment)
+      
+      // Mostrar modal de éxito
       setShowConfirmModal(false)
       setShowSuccessModal(true)
-    } catch (error) {
+      
+    } catch (error: any) {
       console.error('Error booking appointment:', error)
-      setError('Hubo un problema al reservar tu turno. Por favor intenta nuevamente.')
+      setError(error.message || 'Hubo un problema al reservar tu turno. Por favor intenta nuevamente.')
     } finally {
       setIsBooking(false)
     }
   }
 
   const handleConfirmBooking = () => {
-    if (!selectedDate || !selectedTime || !patientInfo.name || !patientInfo.email) {
+    // Validación antes de abrir el modal
+    if (!selectedDate) {
+      setError('Por favor selecciona una fecha')
       return
     }
+    if (!selectedTime) {
+      setError('Por favor selecciona un horario')
+      return
+    }
+    if (!patientInfo.name.trim()) {
+      setError('Por favor ingresa tu nombre completo')
+      return
+    }
+    if (!patientInfo.email.trim()) {
+      setError('Por favor ingresa tu email')
+      return
+    }
+    
+    setError(null)
     setShowConfirmModal(true)
   }
 
   if (!doctor) {
-    return <div className="text-center py-8">Cargando información del médico...</div>
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando información del médico...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -198,7 +206,7 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
       <div className="flex items-center space-x-4">
         <button
           onClick={onBack}
-          className="flex items-center text-blue-600 hover:text-blue-800"
+          className="flex items-center text-blue-600 hover:text-blue-800 transition-colors"
         >
           <ArrowLeft className="h-5 w-5 mr-2" />
           Volver a médicos
@@ -218,7 +226,7 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Date Picker Profesional */}
+          {/* Date Picker */}
           <div>
             <h3 className="text-lg font-semibold mb-4 flex items-center text-gray-900">
               <Calendar className="h-5 w-5 mr-2 text-blue-600" />
@@ -267,7 +275,7 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
             )}
           </div>
 
-          {/* Selección de hora mejorada */}
+          {/* Selección de hora */}
           <div>
             <h3 className="text-lg font-semibold mb-4 flex items-center text-gray-900">
               <Clock className="h-5 w-5 mr-2 text-blue-600" />
@@ -314,7 +322,7 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
           </div>
         </div>
 
-        {/* Información del paciente mejorada */}
+        {/* Información del paciente */}
         <div className="mt-8">
           <h3 className="text-lg font-semibold mb-6 flex items-center text-gray-900">
             <User className="h-5 w-5 mr-2 text-blue-600" />
@@ -327,10 +335,11 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
               </div>
               <input
                 type="text"
-                placeholder="Nombre completo"
+                placeholder="Nombre completo *"
                 className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all placeholder-gray-600 text-gray-900 font-medium bg-white shadow-sm hover:border-gray-300"
                 value={patientInfo.name}
                 onChange={(e) => setPatientInfo({...patientInfo, name: e.target.value})}
+                required
               />
             </div>
             <div className="relative">
@@ -339,10 +348,11 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
               </div>
               <input
                 type="email"
-                placeholder="correo@ejemplo.com"
+                placeholder="correo@ejemplo.com *"
                 className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all placeholder-gray-600 text-gray-900 font-medium bg-white shadow-sm hover:border-gray-300"
                 value={patientInfo.email}
                 onChange={(e) => setPatientInfo({...patientInfo, email: e.target.value})}
+                required
               />
             </div>
             <div className="relative">
@@ -360,7 +370,7 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
           </div>
           <div className="mt-4 p-4 bg-blue-50 rounded-xl">
             <p className="text-sm text-blue-800">
-              <span className="font-medium">Información importante:</span> Todos los campos son obligatorios para procesar tu reserva.
+              <span className="font-medium">Información importante:</span> Los campos con * son obligatorios. El turno se guardará automáticamente en el sistema.
             </p>
           </div>
         </div>
@@ -442,7 +452,7 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
                       <div className="space-y-2 text-sm text-gray-700">
                         <p><span className="font-medium">Nombre:</span> {patientInfo.name}</p>
                         <p><span className="font-medium">Email:</span> {patientInfo.email}</p>
-                        <p><span className="font-medium">Teléfono:</span> {patientInfo.phone}</p>
+                        {patientInfo.phone && <p><span className="font-medium">Teléfono:</span> {patientInfo.phone}</p>}
                       </div>
                     </div>
                   </div>
@@ -465,7 +475,7 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
                       {isBooking ? (
                         <>
                           <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
-                          Reservando...
+                          Guardando...
                         </>
                       ) : (
                         'Confirmar Reserva'
@@ -507,27 +517,28 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
               >
                 <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
                   <div className="text-center">
-                    <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-gradient-to-r from-green-400 to-green-600 mb-6 animate-pulse">
+                    <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-gradient-to-r from-green-400 to-green-600 mb-6">
                       <CheckCircle className="h-8 w-8 text-white" />
                     </div>
                     <Dialog.Title as="h3" className="text-2xl font-bold text-gray-900 mb-3">
-                      ✅ ¡Turno Reservado con Éxito!
+                      ¡Turno Reservado con Éxito!
                     </Dialog.Title>
                     <div className="bg-green-50 p-4 rounded-xl mb-6">
                       <p className="text-green-800 font-medium mb-2">
-                        🎉 Tu cita médica ha sido confirmada
+                        Tu cita médica ha sido guardada en el sistema
                       </p>
                       <p className="text-sm text-green-700">
-                        El consultorio ha sido notificado y el Dr. {doctor?.name} te estará esperando en la fecha programada.
+                        El turno está registrado con el Dr. {doctor?.name} para el {selectedDate && format(selectedDate, 'd MMMM yyyy', { locale: es })} a las {selectedTime}.
                       </p>
                     </div>
                     
-                    <div className="bg-green-50 p-4 rounded-xl mb-6 text-left">
-                      <h4 className="font-medium text-green-900 mb-2">Recordatorio</h4>
-                      <ul className="text-sm text-green-800 space-y-1">
+                    <div className="bg-blue-50 p-4 rounded-xl mb-6 text-left">
+                      <h4 className="font-medium text-blue-900 mb-2">Recordatorio</h4>
+                      <ul className="text-sm text-blue-800 space-y-1">
                         <li>• Llega 15 minutos antes de tu cita</li>
                         <li>• Trae tu documento de identidad</li>
                         <li>• Trae tu obra social (si tienes)</li>
+                        <li>• El turno se puede ver en el panel administrativo</li>
                       </ul>
                     </div>
 
