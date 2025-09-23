@@ -134,9 +134,9 @@ export default function Home() {
       <footer className="bg-white border-t border-gray-200 mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center">
-            <small className="text-secondary">
+            <small className="text-gray-600">
               Desarrollado por{' '}
-              <a href="https://botoncreativo.onrender.com" target="_blank" rel="noopener noreferrer" className="text-ship">
+              <a href="https://botoncreativo.onrender.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">
                 Botón Creativo
               </a>
             </small>
