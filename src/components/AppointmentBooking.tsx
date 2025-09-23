@@ -117,7 +117,7 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
         .eq('email', patientInfo.email)
         .single()
 
-      if (!patient) {
+      if (!patient || patientError) {
         const { data: newPatient, error: createPatientError } = await supabase
           .from('patients')
           .insert([{

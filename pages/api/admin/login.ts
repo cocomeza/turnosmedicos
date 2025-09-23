@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { validateAdminCredentials, setAdminSession } from '../../../lib/admin-auth'
+import { validateAdminCredentials, setAdminSession } from '../../../src/lib/admin-auth'
 
 export default async function handler(
   req: NextApiRequest,
