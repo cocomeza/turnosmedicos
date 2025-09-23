@@ -13,7 +13,8 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertCircle,
-  Eye
+  Eye,
+  Home
 } from 'lucide-react'
 import type { AdminUser } from '../../../lib/admin-auth'
 
@@ -179,13 +180,22 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
               <h1 className="text-2xl font-bold text-gray-900">Panel de Administración</h1>
               <p className="text-sm text-gray-600">Bienvenido, {adminUser.email}</p>
             </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center px-4 py-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Cerrar Sesión
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.push('/')}
+                className="flex items-center px-4 py-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+              >
+                <Home className="h-4 w-4 mr-2" />
+                Volver al Home
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex items-center px-4 py-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Cerrar Sesión
+              </button>
+            </div>
           </div>
         </div>
       </header>
