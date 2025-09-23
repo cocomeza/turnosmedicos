@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Shield, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { Shield, Eye, EyeOff, AlertCircle, Home } from 'lucide-react'
 
 export default function AdminLogin() {
   const [email, setEmail] = useState('')
@@ -125,8 +125,19 @@ export default function AdminLogin() {
             </button>
           </form>
 
+          {/* Botón volver al home */}
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => router.push('/')}
+              className="inline-flex items-center px-4 py-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors font-medium"
+            >
+              <Home className="h-4 w-4 mr-2" />
+              Volver al Home
+            </button>
+          </div>
+
           {/* Info */}
-          <div className="mt-8 text-center">
+          <div className="mt-6 text-center">
             <p className="text-xs text-gray-500">
               Panel restringido para personal autorizado
             </p>
