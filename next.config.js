@@ -1,33 +1,28 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Configuración TypeScript más permisiva para solucionar el error
+  // Configuración TypeScript (permisiva solo en desarrollo)
   typescript: {
-    // Ignorar errores de build para que compile
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: process.env.NODE_ENV === 'development',
   },
   
-  // ESLint configuration
+  // ESLint configuration (permisiva solo en desarrollo)
   eslint: {
-    // Ignorar errores de ESLint durante build
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: process.env.NODE_ENV === 'development',
   },
 
-  // Configuración para permitir Replit preview
-  experimental: {
+  // Configuración para permitir Replit preview (solo en desarrollo)  
+  ...(process.env.NODE_ENV === 'development' && {
     allowedDevOrigins: ['*']
-  },
+  }),
 
   
-  // Configuración para Replit/Vercel
+  // Configuración de headers más segura
   async headers() {
     return [
       {
-        source: "/(.*)",
+        // Solo aplicar headers especiales en rutas de API
+        source: "/api/:path*",
         headers: [
-          {
-            key: "X-Frame-Options", 
-            value: "SAMEORIGIN",
-          },
           {
             key: "Cache-Control",
             value: "no-cache, no-store, must-revalidate",
@@ -43,6 +38,20 @@ const nextConfig = {
           {
             key: "Access-Control-Allow-Headers",
             value: "Content-Type, Authorization",
+          },
+        ],
+      },
+      {
+        // Headers de seguridad para todas las páginas
+        source: "/(.*)",
+        headers: [
+          {
+            key: "X-Frame-Options", 
+            value: "SAMEORIGIN",
+          },
+          {
+            key: "Cache-Control",
+            value: "no-cache, no-store, must-revalidate",
           },
         ],
       },
