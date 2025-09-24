@@ -14,8 +14,17 @@ import {
   ChevronRight,
   AlertCircle,
   Eye,
-  Home
+  Home,
+  Plus,
+  Edit,
+  Trash2,
+  X,
+  Save
 } from 'lucide-react'
+import { Dialog, Transition } from '@headlessui/react'
+import { Fragment } from 'react'
+import DatePicker from 'react-datepicker'
+import 'react-datepicker/dist/react-datepicker.css'
 import type { AdminUser } from '../../../lib/admin-auth'
 
 interface AdminDashboardProps {
@@ -62,10 +71,29 @@ interface Doctor {
   }
 }
 
+interface Patient {
+  id: string
+  name: string
+  email: string
+  phone: string
+}
+
+interface CreateAppointmentForm {
+  doctorId: string
+  patientId: string
+  patientName?: string
+  patientEmail?: string
+  patientPhone?: string
+  appointmentDate: string
+  appointmentTime: string
+  notes: string
+}
+
 export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
   const [appointments, setAppointments] = useState<AppointmentData[]>([])
   const [stats, setStats] = useState<Stats>({ total: 0, today: 0, scheduled: 0, completed: 0 })
   const [doctors, setDoctors] = useState<Doctor[]>([])
+  const [patients, setPatients] = useState<Patient[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   
@@ -76,29 +104,53 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   
+  // Modales y formularios
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [editingAppointment, setEditingAppointment] = useState<AppointmentData | null>(null)
+  const [deletingAppointment, setDeletingAppointment] = useState<AppointmentData | null>(null)
+  const [availableTimes, setAvailableTimes] = useState<string[]>([])
+  const [formLoading, setFormLoading] = useState(false)
+  
+  // Formulario de crear/editar cita
+  const [appointmentForm, setAppointmentForm] = useState<CreateAppointmentForm>({
+    doctorId: '',
+    patientId: '',
+    patientName: '',
+    patientEmail: '',
+    patientPhone: '',
+    appointmentDate: '',
+    appointmentTime: '',
+    notes: ''
+  })
+  
   const router = useRouter()
 
   const fetchData = async () => {
     try {
       setLoading(true)
       
-      // Fetch stats and doctors
-      const [statsRes, appointmentsRes] = await Promise.all([
+      // Fetch stats, doctors, appointments and patients
+      const [statsRes, appointmentsRes, patientsRes] = await Promise.all([
         fetch('/api/admin/stats'),
-        fetch(`/api/admin/appointments?page=${currentPage}&search=${encodeURIComponent(search)}&status=${statusFilter}&doctorId=${doctorFilter}`)
+        fetch(`/api/admin/appointments?page=${currentPage}&search=${encodeURIComponent(search)}&status=${statusFilter}&doctorId=${doctorFilter}`),
+        fetch('/api/admin/patients')
       ])
 
-      if (!statsRes.ok || !appointmentsRes.ok) {
+      if (!statsRes.ok || !appointmentsRes.ok || !patientsRes.ok) {
         throw new Error('Error al cargar datos')
       }
 
       const statsData = await statsRes.json()
       const appointmentsData = await appointmentsRes.json()
+      const patientsData = await patientsRes.json()
 
       setStats(statsData.stats)
       setDoctors(statsData.doctors)
       setAppointments(appointmentsData.appointments)
       setTotalPages(appointmentsData.totalPages)
+      setPatients(patientsData.patients)
     } catch (err) {
       setError('Error al cargar los datos del panel')
       console.error(err)
@@ -137,6 +189,207 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
       }
     } catch (err) {
       alert('Error al actualizar la cita')
+    }
+  }
+
+  // Nuevas funciones para CRUD completo
+  const fetchAvailableTimes = async (doctorId: string, date: string) => {
+    try {
+      const response = await fetch(`/api/admin/available-times?doctorId=${doctorId}&date=${date}`)
+      if (response.ok) {
+        const data = await response.json()
+        setAvailableTimes(data.availableTimes)
+      } else {
+        setAvailableTimes([])
+      }
+    } catch (err) {
+      console.error('Error fetching available times:', err)
+      setAvailableTimes([])
+    }
+  }
+
+  const handleCreateAppointment = async () => {
+    if (!appointmentForm.doctorId || !appointmentForm.appointmentDate || !appointmentForm.appointmentTime) {
+      alert('Por favor completa todos los campos obligatorios')
+      return
+    }
+
+    setFormLoading(true)
+    try {
+      let patientId = appointmentForm.patientId
+
+      // Si es un nuevo paciente, crearlo primero
+      if (!patientId && appointmentForm.patientName && appointmentForm.patientEmail) {
+        const patientResponse = await fetch('/api/admin/patients', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: appointmentForm.patientName,
+            email: appointmentForm.patientEmail,
+            phone: appointmentForm.patientPhone
+          })
+        })
+
+        if (patientResponse.ok) {
+          const patientData = await patientResponse.json()
+          patientId = patientData.patient.id
+        } else {
+          const error = await patientResponse.json()
+          throw new Error(error.error)
+        }
+      }
+
+      const response = await fetch('/api/admin/appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          doctorId: appointmentForm.doctorId,
+          patientId: patientId,
+          appointmentDate: appointmentForm.appointmentDate,
+          appointmentTime: appointmentForm.appointmentTime,
+          notes: appointmentForm.notes
+        })
+      })
+
+      if (response.ok) {
+        setShowCreateModal(false)
+        resetForm()
+        await fetchData()
+        alert('Cita creada exitosamente')
+      } else {
+        const error = await response.json()
+        throw new Error(error.error)
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error al crear la cita')
+    } finally {
+      setFormLoading(false)
+    }
+  }
+
+  const handleEditAppointment = async () => {
+    if (!editingAppointment || !appointmentForm.doctorId || !appointmentForm.appointmentDate || !appointmentForm.appointmentTime) {
+      alert('Por favor completa todos los campos obligatorios')
+      return
+    }
+
+    setFormLoading(true)
+    try {
+      const response = await fetch('/api/admin/appointments', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appointmentId: editingAppointment.id,
+          doctorId: appointmentForm.doctorId,
+          patientId: appointmentForm.patientId,
+          appointmentDate: appointmentForm.appointmentDate,
+          appointmentTime: appointmentForm.appointmentTime,
+          notes: appointmentForm.notes
+        })
+      })
+
+      if (response.ok) {
+        setShowEditModal(false)
+        setEditingAppointment(null)
+        resetForm()
+        await fetchData()
+        alert('Cita actualizada exitosamente')
+      } else {
+        const error = await response.json()
+        throw new Error(error.error)
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error al actualizar la cita')
+    } finally {
+      setFormLoading(false)
+    }
+  }
+
+  const handleDeleteAppointment = async () => {
+    if (!deletingAppointment) return
+
+    setFormLoading(true)
+    try {
+      const response = await fetch('/api/admin/appointments', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentId: deletingAppointment.id })
+      })
+
+      if (response.ok) {
+        setShowDeleteModal(false)
+        setDeletingAppointment(null)
+        await fetchData()
+        alert('Cita eliminada exitosamente')
+      } else {
+        const error = await response.json()
+        throw new Error(error.error)
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error al eliminar la cita')
+    } finally {
+      setFormLoading(false)
+    }
+  }
+
+  const openCreateModal = () => {
+    resetForm()
+    setShowCreateModal(true)
+  }
+
+  const openEditModal = (appointment: AppointmentData) => {
+    setEditingAppointment(appointment)
+    setAppointmentForm({
+      doctorId: appointment.doctor.id,
+      patientId: appointment.patient.id,
+      patientName: appointment.patient.name,
+      patientEmail: appointment.patient.email,
+      patientPhone: appointment.patient.phone,
+      appointmentDate: appointment.appointment_date,
+      appointmentTime: appointment.appointment_time,
+      notes: appointment.notes || ''
+    })
+    // Fetch available times for the selected doctor and date
+    fetchAvailableTimes(appointment.doctor.id, appointment.appointment_date)
+    setShowEditModal(true)
+  }
+
+  const openDeleteModal = (appointment: AppointmentData) => {
+    setDeletingAppointment(appointment)
+    setShowDeleteModal(true)
+  }
+
+  const resetForm = () => {
+    setAppointmentForm({
+      doctorId: '',
+      patientId: '',
+      patientName: '',
+      patientEmail: '',
+      patientPhone: '',
+      appointmentDate: '',
+      appointmentTime: '',
+      notes: ''
+    })
+    setAvailableTimes([])
+  }
+
+  // Handle form changes
+  const handleFormChange = (field: keyof CreateAppointmentForm, value: string) => {
+    setAppointmentForm(prev => ({
+      ...prev,
+      [field]: value
+    }))
+
+    // If doctor or date changes, fetch available times
+    if (field === 'doctorId' || field === 'appointmentDate') {
+      const doctorId = field === 'doctorId' ? value : appointmentForm.doctorId
+      const date = field === 'appointmentDate' ? value : appointmentForm.appointmentDate
+      
+      if (doctorId && date) {
+        fetchAvailableTimes(doctorId, date)
+      } else {
+        setAvailableTimes([])
+      }
     }
   }
 
@@ -264,45 +517,55 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
           </div>
         </div>
 
-        {/* Filters */}
+        {/* Filters and Actions */}
         <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar por paciente..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
+          <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+            <div className="flex flex-col sm:flex-row gap-4 flex-1">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por paciente..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
               </div>
+              
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">Todos los estados</option>
+                <option value="scheduled">Programadas</option>
+                <option value="completed">Completadas</option>
+                <option value="cancelled">Canceladas</option>
+              </select>
+              
+              <select
+                value={doctorFilter}
+                onChange={(e) => setDoctorFilter(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Todos los médicos</option>
+                {doctors.map((doctor) => (
+                  <option key={doctor.id} value={doctor.id}>
+                    Dr. {doctor.name}
+                  </option>
+                ))}
+              </select>
             </div>
             
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            <button
+              onClick={openCreateModal}
+              className="flex items-center px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white font-medium rounded-lg hover:from-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
             >
-              <option value="all">Todos los estados</option>
-              <option value="scheduled">Programadas</option>
-              <option value="completed">Completadas</option>
-              <option value="cancelled">Canceladas</option>
-            </select>
-            
-            <select
-              value={doctorFilter}
-              onChange={(e) => setDoctorFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Todos los médicos</option>
-              {doctors.map((doctor) => (
-                <option key={doctor.id} value={doctor.id}>
-                  Dr. {doctor.name}
-                </option>
-              ))}
-            </select>
+              <Plus className="h-4 w-4 mr-2" />
+              Crear Nueva Cita
+            </button>
           </div>
         </div>
 
@@ -372,31 +635,52 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
                       {getStatusBadge(appointment.status)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex space-x-2">
-                        {appointment.status === 'scheduled' && (
-                          <>
-                            <button
-                              onClick={() => updateAppointmentStatus(appointment.id, 'completed')}
-                              className="text-green-600 hover:text-green-800 font-medium"
-                            >
-                              Completar
-                            </button>
-                            <button
-                              onClick={() => updateAppointmentStatus(appointment.id, 'cancelled')}
-                              className="text-red-600 hover:text-red-800 font-medium"
-                            >
-                              Cancelar
-                            </button>
-                          </>
-                        )}
-                        {appointment.status === 'cancelled' && (
+                      <div className="flex flex-col space-y-1">
+                        {/* Botones principales de CRUD */}
+                        <div className="flex space-x-2">
                           <button
-                            onClick={() => updateAppointmentStatus(appointment.id, 'scheduled')}
-                            className="text-blue-600 hover:text-blue-800 font-medium"
+                            onClick={() => openEditModal(appointment)}
+                            className="inline-flex items-center px-2 py-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded text-xs font-medium transition-colors"
                           >
-                            Reactivar
+                            <Edit className="h-3 w-3 mr-1" />
+                            Editar
                           </button>
-                        )}
+                          <button
+                            onClick={() => openDeleteModal(appointment)}
+                            className="inline-flex items-center px-2 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded text-xs font-medium transition-colors"
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            Eliminar
+                          </button>
+                        </div>
+                        
+                        {/* Botones de estado */}
+                        <div className="flex space-x-2">
+                          {appointment.status === 'scheduled' && (
+                            <>
+                              <button
+                                onClick={() => updateAppointmentStatus(appointment.id, 'completed')}
+                                className="text-green-600 hover:text-green-800 text-xs font-medium hover:bg-green-50 px-2 py-1 rounded transition-colors"
+                              >
+                                Completar
+                              </button>
+                              <button
+                                onClick={() => updateAppointmentStatus(appointment.id, 'cancelled')}
+                                className="text-orange-600 hover:text-orange-800 text-xs font-medium hover:bg-orange-50 px-2 py-1 rounded transition-colors"
+                              >
+                                Cancelar
+                              </button>
+                            </>
+                          )}
+                          {appointment.status === 'cancelled' && (
+                            <button
+                              onClick={() => updateAppointmentStatus(appointment.id, 'scheduled')}
+                              className="text-blue-600 hover:text-blue-800 text-xs font-medium hover:bg-blue-50 px-2 py-1 rounded transition-colors"
+                            >
+                              Reactivar
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -454,6 +738,395 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
           )}
         </div>
       </main>
+
+      {/* Modal para Crear Nueva Cita */}
+      <Transition appear show={showCreateModal} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setShowCreateModal(false)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black/25 backdrop-blur-sm" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                  <Dialog.Title as="h3" className="text-lg font-semibold leading-6 text-gray-900 mb-4">
+                    Crear Nueva Cita Médica
+                  </Dialog.Title>
+                  
+                  <div className="space-y-4">
+                    {/* Selección de Doctor */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Doctor</label>
+                      <select
+                        value={appointmentForm.doctorId}
+                        onChange={(e) => handleFormChange('doctorId', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        required
+                      >
+                        <option value="">Seleccionar doctor...</option>
+                        {doctors.map((doctor) => (
+                          <option key={doctor.id} value={doctor.id}>
+                            Dr. {doctor.name} - {doctor.specialty.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Selección/Creación de Paciente */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Paciente</label>
+                      <select
+                        value={appointmentForm.patientId}
+                        onChange={(e) => handleFormChange('patientId', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">Crear nuevo paciente...</option>
+                        {patients.map((patient) => (
+                          <option key={patient.id} value={patient.id}>
+                            {patient.name} - {patient.email}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Campos para nuevo paciente */}
+                    {!appointmentForm.patientId && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Nombre completo</label>
+                          <input
+                            type="text"
+                            value={appointmentForm.patientName || ''}
+                            onChange={(e) => handleFormChange('patientName', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                          <input
+                            type="email"
+                            value={appointmentForm.patientEmail || ''}
+                            onChange={(e) => handleFormChange('patientEmail', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono</label>
+                          <input
+                            type="tel"
+                            value={appointmentForm.patientPhone || ''}
+                            onChange={(e) => handleFormChange('patientPhone', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Fecha y Hora */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Fecha</label>
+                        <input
+                          type="date"
+                          value={appointmentForm.appointmentDate}
+                          onChange={(e) => handleFormChange('appointmentDate', e.target.value)}
+                          min={new Date().toISOString().split('T')[0]}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Hora</label>
+                        <select
+                          value={appointmentForm.appointmentTime}
+                          onChange={(e) => handleFormChange('appointmentTime', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          required
+                        >
+                          <option value="">Seleccionar hora...</option>
+                          {availableTimes.map((time) => (
+                            <option key={time} value={time}>
+                              {time}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Notas */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Notas (opcional)</label>
+                      <textarea
+                        value={appointmentForm.notes}
+                        onChange={(e) => handleFormChange('notes', e.target.value)}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex justify-end space-x-3">
+                    <button
+                      type="button"
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                      onClick={() => setShowCreateModal(false)}
+                      disabled={formLoading}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50 flex items-center"
+                      onClick={handleCreateAppointment}
+                      disabled={formLoading}
+                    >
+                      {formLoading && (
+                        <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                      )}
+                      <Save className="h-4 w-4 mr-1" />
+                      Crear Cita
+                    </button>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+
+      {/* Modal para Editar Cita */}
+      <Transition appear show={showEditModal} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setShowEditModal(false)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black/25 backdrop-blur-sm" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                  <Dialog.Title as="h3" className="text-lg font-semibold leading-6 text-gray-900 mb-4">
+                    Editar Cita Médica
+                  </Dialog.Title>
+                  
+                  <div className="space-y-4">
+                    {/* Información del Paciente (solo lectura) */}
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Paciente</h4>
+                      <p className="text-sm text-gray-900">{appointmentForm.patientName}</p>
+                      <p className="text-sm text-gray-500">{appointmentForm.patientEmail}</p>
+                    </div>
+
+                    {/* Selección de Doctor */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Doctor</label>
+                      <select
+                        value={appointmentForm.doctorId}
+                        onChange={(e) => handleFormChange('doctorId', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        required
+                      >
+                        <option value="">Seleccionar doctor...</option>
+                        {doctors.map((doctor) => (
+                          <option key={doctor.id} value={doctor.id}>
+                            Dr. {doctor.name} - {doctor.specialty.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Fecha y Hora */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Fecha</label>
+                        <input
+                          type="date"
+                          value={appointmentForm.appointmentDate}
+                          onChange={(e) => handleFormChange('appointmentDate', e.target.value)}
+                          min={new Date().toISOString().split('T')[0]}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Hora</label>
+                        <select
+                          value={appointmentForm.appointmentTime}
+                          onChange={(e) => handleFormChange('appointmentTime', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          required
+                        >
+                          <option value="">Seleccionar hora...</option>
+                          {availableTimes.map((time) => (
+                            <option key={time} value={time}>
+                              {time}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Notas */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Notas</label>
+                      <textarea
+                        value={appointmentForm.notes}
+                        onChange={(e) => handleFormChange('notes', e.target.value)}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex justify-end space-x-3">
+                    <button
+                      type="button"
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                      onClick={() => setShowEditModal(false)}
+                      disabled={formLoading}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 flex items-center"
+                      onClick={handleEditAppointment}
+                      disabled={formLoading}
+                    >
+                      {formLoading && (
+                        <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                      )}
+                      <Save className="h-4 w-4 mr-1" />
+                      Guardar Cambios
+                    </button>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+
+      {/* Modal de Confirmación para Eliminar */}
+      <Transition appear show={showDeleteModal} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setShowDeleteModal(false)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black/25 backdrop-blur-sm" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                  <Dialog.Title as="h3" className="text-lg font-semibold leading-6 text-gray-900 mb-4">
+                    Confirmar Eliminación
+                  </Dialog.Title>
+                  
+                  <div className="mb-6">
+                    <p className="text-sm text-gray-600 mb-4">
+                      ¿Estás seguro de que deseas eliminar permanentemente esta cita médica?
+                    </p>
+                    
+                    {deletingAppointment && (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-red-900">
+                            Paciente: {deletingAppointment.patient.name}
+                          </p>
+                          <p className="text-sm text-red-700">
+                            Doctor: Dr. {deletingAppointment.doctor.name}
+                          </p>
+                          <p className="text-sm text-red-700">
+                            Fecha: {new Date(deletingAppointment.appointment_date).toLocaleDateString('es-ES')} a las {deletingAppointment.appointment_time}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <p className="text-xs text-gray-500 mt-4">
+                      Esta acción no se puede deshacer.
+                    </p>
+                  </div>
+
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      type="button"
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                      onClick={() => setShowDeleteModal(false)}
+                      disabled={formLoading}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 flex items-center"
+                      onClick={handleDeleteAppointment}
+                      disabled={formLoading}
+                    >
+                      {formLoading && (
+                        <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                      )}
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Eliminar
+                    </button>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
     </div>
   )
 }

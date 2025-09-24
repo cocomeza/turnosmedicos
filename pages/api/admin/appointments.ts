@@ -1,5 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { getAppointmentsForAdmin, updateAppointmentStatus } from '../../../src/lib/supabase-admin'
+import { 
+  getAppointmentsForAdmin, 
+  updateAppointmentStatus, 
+  createAppointmentForAdmin,
+  updateAppointmentForAdmin,
+  deleteAppointmentForAdmin 
+} from '../../../src/lib/supabase-admin'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // La autenticación se maneja en el middleware
@@ -58,6 +64,80 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     } catch (error) {
       console.error('Error updating appointment:', error)
       return res.status(500).json({ error: 'Error al actualizar cita' })
+    }
+  }
+
+  if (req.method === 'POST') {
+    try {
+      const { doctorId, patientId, appointmentDate, appointmentTime, status, notes } = req.body
+
+      if (!doctorId || !patientId || !appointmentDate || !appointmentTime) {
+        return res.status(400).json({ error: 'Doctor, paciente, fecha y hora son requeridos' })
+      }
+
+      const newAppointment = await createAppointmentForAdmin({
+        doctorId,
+        patientId,
+        appointmentDate,
+        appointmentTime,
+        status,
+        notes
+      })
+
+      return res.status(201).json({ 
+        success: true, 
+        appointment: newAppointment 
+      })
+    } catch (error: any) {
+      console.error('Error creating appointment:', error)
+      return res.status(400).json({ error: error.message || 'Error al crear la cita' })
+    }
+  }
+
+  if (req.method === 'PUT') {
+    try {
+      const { appointmentId, doctorId, patientId, appointmentDate, appointmentTime, status, notes } = req.body
+
+      if (!appointmentId) {
+        return res.status(400).json({ error: 'ID de cita requerido' })
+      }
+
+      const updatedAppointment = await updateAppointmentForAdmin(appointmentId, {
+        doctorId,
+        patientId,
+        appointmentDate,
+        appointmentTime,
+        status,
+        notes
+      })
+
+      return res.status(200).json({ 
+        success: true, 
+        appointment: updatedAppointment 
+      })
+    } catch (error: any) {
+      console.error('Error updating appointment:', error)
+      return res.status(400).json({ error: error.message || 'Error al actualizar la cita' })
+    }
+  }
+
+  if (req.method === 'DELETE') {
+    try {
+      const { appointmentId } = req.body
+
+      if (!appointmentId) {
+        return res.status(400).json({ error: 'ID de cita requerido' })
+      }
+
+      const deletedAppointment = await deleteAppointmentForAdmin(appointmentId)
+
+      return res.status(200).json({ 
+        success: true, 
+        appointment: deletedAppointment 
+      })
+    } catch (error: any) {
+      console.error('Error deleting appointment:', error)
+      return res.status(400).json({ error: error.message || 'Error al eliminar la cita' })
     }
   }
 

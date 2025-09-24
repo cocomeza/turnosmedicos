@@ -216,3 +216,243 @@ export async function getAppointmentStats() {
     completed: completedAppointments || 0
   }
 }
+
+// Nuevas funciones para CRUD completo de citas
+
+export interface CreateAppointmentData {
+  doctorId: string
+  patientId: string
+  appointmentDate: string
+  appointmentTime: string
+  status?: 'scheduled' | 'completed' | 'cancelled'
+  notes?: string
+}
+
+export interface UpdateAppointmentData {
+  doctorId?: string
+  patientId?: string
+  appointmentDate?: string
+  appointmentTime?: string
+  status?: 'scheduled' | 'completed' | 'cancelled'
+  notes?: string
+}
+
+export async function createAppointmentForAdmin(appointmentData: CreateAppointmentData) {
+  // Verificar que el horario esté disponible
+  const { data: existingAppointment } = await supabaseAdmin
+    .from('appointments')
+    .select('id')
+    .eq('doctor_id', appointmentData.doctorId)
+    .eq('appointment_date', appointmentData.appointmentDate)
+    .eq('appointment_time', appointmentData.appointmentTime)
+    .neq('status', 'cancelled')
+    .single()
+
+  if (existingAppointment) {
+    throw new Error('El horario seleccionado ya está ocupado')
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('appointments')
+    .insert([{
+      doctor_id: appointmentData.doctorId,
+      patient_id: appointmentData.patientId,
+      appointment_date: appointmentData.appointmentDate,
+      appointment_time: appointmentData.appointmentTime,
+      status: appointmentData.status || 'scheduled',
+      notes: appointmentData.notes
+    }])
+    .select(`
+      id,
+      appointment_date,
+      appointment_time,
+      status,
+      notes,
+      created_at,
+      doctor:doctors(
+        id,
+        name,
+        email,
+        phone,
+        specialty:specialties(name)
+      ),
+      patient:patients(
+        id,
+        name,
+        email,
+        phone
+      )
+    `)
+    .single()
+
+  if (error) {
+    console.error('Error creating appointment:', error)
+    throw error
+  }
+
+  return data
+}
+
+export async function updateAppointmentForAdmin(appointmentId: string, updateData: UpdateAppointmentData) {
+  // Si se está cambiando fecha/hora/doctor, verificar disponibilidad
+  if (updateData.doctorId && updateData.appointmentDate && updateData.appointmentTime) {
+    const { data: existingAppointment } = await supabaseAdmin
+      .from('appointments')
+      .select('id')
+      .eq('doctor_id', updateData.doctorId)
+      .eq('appointment_date', updateData.appointmentDate)
+      .eq('appointment_time', updateData.appointmentTime)
+      .neq('status', 'cancelled')
+      .neq('id', appointmentId)
+      .single()
+
+    if (existingAppointment) {
+      throw new Error('El horario seleccionado ya está ocupado')
+    }
+  }
+
+  const updateObject: any = {}
+  
+  if (updateData.doctorId) updateObject.doctor_id = updateData.doctorId
+  if (updateData.patientId) updateObject.patient_id = updateData.patientId
+  if (updateData.appointmentDate) updateObject.appointment_date = updateData.appointmentDate
+  if (updateData.appointmentTime) updateObject.appointment_time = updateData.appointmentTime
+  if (updateData.status) updateObject.status = updateData.status
+  if (updateData.notes !== undefined) updateObject.notes = updateData.notes
+
+  const { data, error } = await supabaseAdmin
+    .from('appointments')
+    .update(updateObject)
+    .eq('id', appointmentId)
+    .select(`
+      id,
+      appointment_date,
+      appointment_time,
+      status,
+      notes,
+      created_at,
+      doctor:doctors(
+        id,
+        name,
+        email,
+        phone,
+        specialty:specialties(name)
+      ),
+      patient:patients(
+        id,
+        name,
+        email,
+        phone
+      )
+    `)
+    .single()
+
+  if (error) {
+    console.error('Error updating appointment:', error)
+    throw error
+  }
+
+  return data
+}
+
+export async function deleteAppointmentForAdmin(appointmentId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('appointments')
+    .delete()
+    .eq('id', appointmentId)
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Error deleting appointment:', error)
+    throw error
+  }
+
+  return data
+}
+
+export async function getPatientsForAdmin() {
+  const { data, error } = await supabaseAdmin
+    .from('patients')
+    .select('id, name, email, phone')
+    .order('name')
+
+  if (error) {
+    console.error('Error fetching patients for admin:', error)
+    throw error
+  }
+
+  return data
+}
+
+export async function createPatientForAdmin(patientData: { name: string; email: string; phone?: string }) {
+  // Verificar si el email ya existe
+  const { data: existingPatient } = await supabaseAdmin
+    .from('patients')
+    .select('id')
+    .eq('email', patientData.email)
+    .single()
+
+  if (existingPatient) {
+    throw new Error('Ya existe un paciente con este email')
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('patients')
+    .insert([patientData])
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Error creating patient:', error)
+    throw error
+  }
+
+  return data
+}
+
+export async function getAvailableTimesForAdmin(doctorId: string, date: string) {
+  // Obtener horario del médico para ese día
+  const dayOfWeek = new Date(date).getDay()
+  
+  const { data: schedule } = await supabaseAdmin
+    .from('doctor_schedules')
+    .select('start_time, end_time')
+    .eq('doctor_id', doctorId)
+    .eq('day_of_week', dayOfWeek)
+    .single()
+
+  if (!schedule) {
+    return []
+  }
+
+  // Obtener turnos ya reservados para esa fecha
+  const { data: existingAppointments } = await supabaseAdmin
+    .from('appointments')
+    .select('appointment_time')
+    .eq('doctor_id', doctorId)
+    .eq('appointment_date', date)
+    .neq('status', 'cancelled')
+
+  const bookedTimes = existingAppointments?.map(apt => apt.appointment_time) || []
+
+  // Generar horarios disponibles (cada 30 minutos)
+  const times = []
+  const [startHour, startMin] = schedule.start_time.split(':').map(Number)
+  const [endHour, endMin] = schedule.end_time.split(':').map(Number)
+  
+  const startTime = startHour * 60 + startMin
+  const endTime = endHour * 60 + endMin
+  
+  for (let time = startTime; time < endTime; time += 30) {
+    const hours = Math.floor(time / 60).toString().padStart(2, '0')
+    const minutes = (time % 60).toString().padStart(2, '0')
+    const timeString = `${hours}:${minutes}`
+    
+    if (!bookedTimes.includes(timeString)) {
+      times.push(timeString)
+    }
+  }
+
+  return times
+}
