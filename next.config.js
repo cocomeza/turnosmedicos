@@ -11,9 +11,11 @@ const nextConfig = {
   },
 
   // Configuración para permitir Replit preview (solo en desarrollo)  
-  ...(process.env.NODE_ENV === 'development' && {
-    allowedDevOrigins: ['*']
-  }),
+  experimental: {
+    ...(process.env.NODE_ENV === 'development' && {
+      allowedDevOrigins: ['*']
+    })
+  },
 
   
   // Configuración de headers más segura
