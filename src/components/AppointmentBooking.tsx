@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { ArrowLeft, Calendar, Clock, User, CheckCircle, AlertCircle, Phone, Mail } from 'lucide-react'
+import { ArrowLeft, Calendar, Clock, User, CheckCircle, AlertCircle, Phone, Mail, Download } from 'lucide-react'
 import { Dialog, Transition } from '@headlessui/react'
 import { supabase, Doctor } from '../lib/supabase'
 import { format, isSameDay, setHours, setMinutes, addMinutes } from 'date-fns'
@@ -8,6 +8,7 @@ import { es } from 'date-fns/locale'
 import { Fragment } from 'react'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
+import { downloadAppointmentReceipt } from '../lib/pdf-generator'
 
 interface AppointmentBookingProps {
   doctorId: string
@@ -28,6 +29,7 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [isBooking, setIsBooking] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [createdAppointment, setCreatedAppointment] = useState<any>(null)
 
   const fetchDoctor = useCallback(async () => {
     const { data, error } = await supabase
@@ -155,6 +157,9 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
 
       console.log('Turno creado exitosamente:', newAppointment)
       
+      // Almacenar datos para el comprobante
+      setCreatedAppointment(newAppointment)
+      
       // Mostrar modal de éxito
       setShowConfirmModal(false)
       setShowSuccessModal(true)
@@ -188,6 +193,24 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
     
     setError(null)
     setShowConfirmModal(true)
+  }
+
+  const handleDownloadReceipt = () => {
+    if (!doctor || !selectedDate || !selectedTime) return
+    
+    const appointmentData = {
+      id: createdAppointment?.id || 'N/A',
+      patientName: patientInfo.name,
+      patientEmail: patientInfo.email,
+      patientPhone: patientInfo.phone,
+      doctorName: doctor.name,
+      specialty: doctor.specialty?.name || 'Sin especialidad',
+      date: selectedDate,
+      time: selectedTime,
+      createdAt: new Date()
+    }
+    
+    downloadAppointmentReceipt(appointmentData)
   }
 
   if (!doctor) {
@@ -542,16 +565,26 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
                       </ul>
                     </div>
 
-                    <button
-                      type="button"
-                      className="w-full inline-flex justify-center rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                      onClick={() => {
-                        setShowSuccessModal(false)
-                        onBack()
-                      }}
-                    >
-                      Volver al Inicio
-                    </button>
+                    <div className="space-y-3">
+                      <button
+                        type="button"
+                        className="w-full inline-flex justify-center items-center rounded-lg bg-green-600 px-4 py-3 text-sm font-medium text-white hover:bg-green-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 transition-colors"
+                        onClick={handleDownloadReceipt}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Descargar Comprobante
+                      </button>
+                      <button
+                        type="button"
+                        className="w-full inline-flex justify-center rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                        onClick={() => {
+                          setShowSuccessModal(false)
+                          onBack()
+                        }}
+                      >
+                        Volver al Inicio
+                      </button>
+                    </div>
                   </div>
                 </Dialog.Panel>
               </Transition.Child>
