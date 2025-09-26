@@ -413,7 +413,10 @@ export async function createPatientForAdmin(patientData: { name: string; email: 
 
 export async function getAvailableTimesForAdmin(doctorId: string, date: string) {
   // Obtener horario del médico para ese día
-  const dayOfWeek = new Date(date).getDay()
+  // Evitar desfase por UTC: construir fecha en horario local a partir de YYYY-MM-DD
+  const [yearStr, monthStr, dayStr] = date.split('-')
+  const localDate = new Date(parseInt(yearStr, 10), parseInt(monthStr, 10) - 1, parseInt(dayStr, 10))
+  const dayOfWeek = localDate.getDay()
   
   const { data: schedule } = await supabaseAdmin
     .from('doctor_schedules')
