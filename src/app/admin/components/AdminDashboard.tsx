@@ -101,6 +101,8 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [doctorFilter, setDoctorFilter] = useState('')
+  const [dateFromFilter, setDateFromFilter] = useState('')
+  const [dateToFilter, setDateToFilter] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   
@@ -134,7 +136,7 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
       // Fetch stats, doctors, appointments and patients
       const [statsRes, appointmentsRes, patientsRes] = await Promise.all([
         fetch('/api/admin/stats'),
-        fetch(`/api/admin/appointments?page=${currentPage}&search=${encodeURIComponent(search)}&status=${statusFilter}&doctorId=${doctorFilter}`),
+        fetch(`/api/admin/appointments?page=${currentPage}&search=${encodeURIComponent(search)}&status=${statusFilter}&doctorId=${doctorFilter}&startDate=${dateFromFilter}&endDate=${dateToFilter}`),
         fetch('/api/admin/patients')
       ])
 
@@ -161,7 +163,7 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
 
   useEffect(() => {
     fetchData()
-  }, [currentPage, search, statusFilter, doctorFilter])
+  }, [currentPage, search, statusFilter, doctorFilter, dateFromFilter, dateToFilter])
 
   const handleLogout = async () => {
     try {
@@ -519,53 +521,90 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
 
         {/* Filters and Actions */}
         <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-          <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-            <div className="flex flex-col sm:flex-row gap-4 flex-1">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Buscar por paciente..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-white border-2 border-gray-500 rounded-lg text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
-                  />
+          <div className="flex flex-col gap-4">
+            {/* Primera fila: Búsqueda y filtros básicos */}
+            <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+              <div className="flex flex-col sm:flex-row gap-4 flex-1">
+                <div className="flex-1">
+                  <div className="relative">
+                    <Search className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Buscar por paciente..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-white border-2 border-gray-500 rounded-lg text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
                 </div>
+                
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="px-4 py-2 bg-white border-2 border-gray-500 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+                >
+                  <option value="all">Todos los estados</option>
+                  <option value="scheduled">Programadas</option>
+                  <option value="completed">Completadas</option>
+                  <option value="cancelled">Canceladas</option>
+                </select>
+                
+                <select
+                  value={doctorFilter}
+                  onChange={(e) => setDoctorFilter(e.target.value)}
+                  className="px-4 py-2 bg-white border-2 border-gray-500 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+                >
+                  <option value="">Todos los médicos</option>
+                  {doctors.map((doctor) => (
+                    <option key={doctor.id} value={doctor.id}>
+                      Dr. {doctor.name}
+                    </option>
+                  ))}
+                </select>
               </div>
               
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-4 py-2 bg-white border-2 border-gray-500 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+              <button
+                onClick={openCreateModal}
+                className="flex items-center px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white font-medium rounded-lg hover:from-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
               >
-                <option value="all">Todos los estados</option>
-                <option value="scheduled">Programadas</option>
-                <option value="completed">Completadas</option>
-                <option value="cancelled">Canceladas</option>
-              </select>
-              
-              <select
-                value={doctorFilter}
-                onChange={(e) => setDoctorFilter(e.target.value)}
-                className="px-4 py-2 bg-white border-2 border-gray-500 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
-              >
-                <option value="">Todos los médicos</option>
-                {doctors.map((doctor) => (
-                  <option key={doctor.id} value={doctor.id}>
-                    Dr. {doctor.name}
-                  </option>
-                ))}
-              </select>
+                <Plus className="h-4 w-4 mr-2" />
+                Crear Nueva Cita
+              </button>
             </div>
-            
-            <button
-              onClick={openCreateModal}
-              className="flex items-center px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white font-medium rounded-lg hover:from-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Crear Nueva Cita
-            </button>
+
+            {/* Segunda fila: Filtros de fecha */}
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center pt-4 border-t border-gray-200">
+              <span className="text-sm font-medium text-gray-700 whitespace-nowrap">Filtrar por fecha:</span>
+              <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+                <label className="text-sm text-gray-600">Desde:</label>
+                <input
+                  type="date"
+                  value={dateFromFilter}
+                  onChange={(e) => setDateFromFilter(e.target.value)}
+                  className="px-3 py-2 bg-white border-2 border-gray-500 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+                <label className="text-sm text-gray-600">Hasta:</label>
+                <input
+                  type="date"
+                  value={dateToFilter}
+                  onChange={(e) => setDateToFilter(e.target.value)}
+                  className="px-3 py-2 bg-white border-2 border-gray-500 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+              {(dateFromFilter || dateToFilter) && (
+                <button
+                  onClick={() => {
+                    setDateFromFilter('')
+                    setDateToFilter('')
+                  }}
+                  className="px-3 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                >
+                  Limpiar fechas
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
