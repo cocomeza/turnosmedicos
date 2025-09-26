@@ -563,9 +563,9 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
         </div>
       </div>
 
-      {/* Modal de Confirmación */}
-      <Transition appear show={showConfirmModal} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={() => setShowConfirmModal(false)}>
+      {/* Modal de Éxito */}
+      <Transition appear show={showSuccessModal} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setShowSuccessModal(false)}>
           <Transition.Child
             as={Fragment}
             enter="ease-out duration-300"
