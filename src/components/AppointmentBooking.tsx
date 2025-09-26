@@ -56,6 +56,7 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
   const [isBooking, setIsBooking] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [createdAppointment, setCreatedAppointment] = useState<any>(null)
+  const [showDownloadSuccess, setShowDownloadSuccess] = useState(false)
   const [validationErrors, setValidationErrors] = useState({
     name: '',
     email: '',
@@ -324,11 +325,9 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
     }
     
     downloadAppointmentReceipt(appointmentData)
-    // Aviso visual de descarga exitosa
-    try {
-      // Intento simple: cambiar el texto del botón por unos segundos
-      alert('📄 El comprobante fue descargado exitosamente.')
-    } catch {}
+    // Aviso de descarga no intrusivo
+    setShowDownloadSuccess(true)
+    setTimeout(() => setShowDownloadSuccess(false), 3000)
   }
 
   if (!doctor) {
@@ -711,6 +710,11 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
                     </div>
 
                     <div className="space-y-3">
+                      {showDownloadSuccess && (
+                        <div className="w-full rounded-lg bg-green-50 border border-green-200 text-green-800 px-4 py-2 text-sm">
+                          📄 El comprobante fue descargado exitosamente.
+                        </div>
+                      )}
                       <button
                         type="button"
                         className="w-full inline-flex justify-center items-center rounded-lg bg-green-600 px-4 py-3 text-sm font-medium text-white hover:bg-green-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 transition-colors"
