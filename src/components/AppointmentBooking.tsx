@@ -324,6 +324,11 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
     }
     
     downloadAppointmentReceipt(appointmentData)
+    // Aviso visual de descarga exitosa
+    try {
+      // Intento simple: cambiar el texto del botón por unos segundos
+      alert('📄 El comprobante fue descargado exitosamente.')
+    } catch {}
   }
 
   if (!doctor) {
