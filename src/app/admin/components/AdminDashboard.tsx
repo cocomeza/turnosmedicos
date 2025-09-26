@@ -121,7 +121,7 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
     const m = parseInt(mStr, 10)
     const d = parseInt(dStr, 10)
     if (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) return ymd
-    const utcDate = new Date(Date.UTC(y, m - 1, d))
+    const utcDate = new Date(Date.UTC(y, m - 1, d + 1))
     const weekdays = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
     const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic']
     const weekday = weekdays[utcDate.getUTCDay()]
