@@ -36,6 +36,11 @@ const formatName = (name: string): string => {
     .join(' ')
 }
 
+// Función para formatear fecha sin problemas de zona horaria
+const formatDateForAPI = (date: Date): string => {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
 export default function AppointmentBooking({ doctorId, onBack }: AppointmentBookingProps) {
   const [doctor, setDoctor] = useState<Doctor | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
@@ -94,7 +99,7 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
       .from('appointments')
       .select('appointment_time')
       .eq('doctor_id', doctorId)
-      .eq('appointment_date', format(selectedDate, 'yyyy-MM-dd'))
+      .eq('appointment_date', formatDateForAPI(selectedDate))
       .neq('status', 'cancelled')
 
     const bookedTimes = existingAppointments?.map(apt => apt.appointment_time) || []
@@ -219,7 +224,7 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
         },
         body: JSON.stringify({
           doctorId: doctorId,
-          appointmentDate: `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`,
+          appointmentDate: formatDateForAPI(selectedDate),
           appointmentTime: selectedTime,
           patientInfo: normalizedPatientInfo
         })
@@ -260,7 +265,7 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
             patientName: normalizedPatientInfo.name,
             patientEmail: normalizedPatientInfo.email,
             patientPhone: normalizedPatientInfo.phone,
-            appointmentDate: format(selectedDate, 'yyyy-MM-dd'),
+            appointmentDate: formatDateForAPI(selectedDate),
             appointmentTime: selectedTime
           })
         })
@@ -730,3 +735,4 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
     </div>
   )
 }
+
