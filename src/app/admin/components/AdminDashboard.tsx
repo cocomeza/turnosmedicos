@@ -116,23 +116,26 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
   const [formLoading, setFormLoading] = useState(false)
   
   // ✅ FUNCIÓN CORREGIDA - Sin el +1 problemático
-  const formatYmdStatic = (ymd: string) => {
-    const [yStr, mStr, dStr] = (ymd || '').split('-')
-    const y = parseInt(yStr, 10)
-    const m = parseInt(mStr, 10)
-    const d = parseInt(dStr, 10)
-    if (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) return ymd
-    
-    // Crear fecha local sin UTC ni días extra
-    const localDate = new Date(y, m - 1, d) // ✅ Sin el +1 problemático
-    
-    const weekdays = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
-    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic']
-    const weekday = weekdays[localDate.getDay()]
-    const month = months[m - 1]
-    const day = d.toString().padStart(2, '0')
-    return `${weekday}, ${day} ${month} ${y}`
-  }
+ const formatYmdStatic = (ymd: string) => {
+  const [yStr, mStr, dStr] = (ymd || '').split('-')
+  const y = parseInt(yStr, 10)
+  const m = parseInt(mStr, 10)
+  const d = parseInt(dStr, 10)
+  if (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) return ymd
+  
+  // ✅ Crear fecha en UTC para evitar problemas de zona horaria Argentina
+  const utcDate = new Date(Date.UTC(y, m - 1, d))
+  
+  const weekdays = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
+  const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic']
+  
+  // ✅ CLAVE: Usar getUTC* en lugar de get*
+  const weekday = weekdays[utcDate.getUTCDay()]
+  const month = months[utcDate.getUTCMonth()]
+  const day = utcDate.getUTCDate().toString().padStart(2, '0')
+  
+  return `${weekday}, ${day} ${month} ${y}`
+}
   
   // Formulario de crear/editar cita
   const [appointmentForm, setAppointmentForm] = useState<CreateAppointmentForm>({
