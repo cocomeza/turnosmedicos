@@ -80,7 +80,17 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
   const fetchAvailableTimes = useCallback(async () => {
     if (!selectedDate) return
 
-    const dayOfWeek = selectedDate.getDay()
+    // Usar fecha local consistente para evitar desfases
+    const localDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate())
+    const dayOfWeek = localDate.getDay()
+    const dateString = formatDateForAPI(selectedDate)
+    
+    console.log('🔍 Buscando horarios para:', { 
+      selectedDate: selectedDate.toISOString(), 
+      localDate: localDate.toISOString(), 
+      dayOfWeek, 
+      dateString 
+    })
     
     // Obtener horario del médico para ese día
     const { data: schedule } = await supabase
@@ -91,27 +101,31 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
       .single()
 
     if (!schedule) {
+      console.log('❌ No hay horario para el día', dayOfWeek)
       setAvailableTimes([])
       return
     }
+
+    console.log('📅 Horario del médico:', schedule)
 
     // Obtener turnos ya reservados para esa fecha
     const { data: existingAppointments } = await supabase
       .from('appointments')
       .select('appointment_time')
       .eq('doctor_id', doctorId)
-      .eq('appointment_date', formatDateForAPI(selectedDate))
+      .eq('appointment_date', dateString)
       .neq('status', 'cancelled')
 
     const bookedTimes = existingAppointments?.map(apt => apt.appointment_time) || []
+    console.log('🚫 Horarios ocupados:', bookedTimes)
 
     // Generar horarios disponibles (cada 30 minutos)
     const times = []
     const [startHour, startMin] = schedule.start_time.split(':').map(Number)
     const [endHour, endMin] = schedule.end_time.split(':').map(Number)
     
-    let currentTime = setMinutes(setHours(new Date(selectedDate), startHour), startMin)
-    const endTime = setMinutes(setHours(new Date(selectedDate), endHour), endMin)
+    let currentTime = setMinutes(setHours(new Date(localDate), startHour), startMin)
+    const endTime = setMinutes(setHours(new Date(localDate), endHour), endMin)
     
     while (currentTime < endTime) {
       const timeString = format(currentTime, 'HH:mm')
@@ -121,6 +135,7 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
       currentTime = addMinutes(currentTime, 30)
     }
 
+    console.log('✅ Horarios disponibles:', times)
     setAvailableTimes(times)
   }, [selectedDate, doctorId])
 
