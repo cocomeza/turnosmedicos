@@ -114,17 +114,21 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
   const [deletingAppointment, setDeletingAppointment] = useState<AppointmentData | null>(null)
   const [availableTimes, setAvailableTimes] = useState<string[]>([])
   const [formLoading, setFormLoading] = useState(false)
-  // Formatear 'YYYY-MM-DD' de forma determinística (sin depender de la zona horaria local)
+  
+  // ✅ FUNCIÓN CORREGIDA - Sin el +1 problemático
   const formatYmdStatic = (ymd: string) => {
     const [yStr, mStr, dStr] = (ymd || '').split('-')
     const y = parseInt(yStr, 10)
     const m = parseInt(mStr, 10)
     const d = parseInt(dStr, 10)
     if (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) return ymd
-    const utcDate = new Date(Date.UTC(y, m - 1, d + 1))
+    
+    // Crear fecha local sin UTC ni días extra
+    const localDate = new Date(y, m - 1, d) // ✅ Sin el +1 problemático
+    
     const weekdays = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
     const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic']
-    const weekday = weekdays[utcDate.getUTCDay()]
+    const weekday = weekdays[localDate.getDay()]
     const month = months[m - 1]
     const day = d.toString().padStart(2, '0')
     return `${weekday}, ${day} ${month} ${y}`
