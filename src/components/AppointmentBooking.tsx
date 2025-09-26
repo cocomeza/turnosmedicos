@@ -219,7 +219,7 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
         },
         body: JSON.stringify({
           doctorId: doctorId,
-          appointmentDate: format(selectedDate, 'yyyy-MM-dd'),
+          appointmentDate: `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`,
           appointmentTime: selectedTime,
           patientInfo: normalizedPatientInfo
         })
