@@ -117,24 +117,39 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
   
   // ✅ FUNCIÓN CORREGIDA - Sin el +1 problemático
  const formatYmdStatic = (ymd: string) => {
+  console.log(`=== DEBUG FECHA: ${ymd} ===`)
+  
   const [yStr, mStr, dStr] = (ymd || '').split('-')
   const y = parseInt(yStr, 10)
   const m = parseInt(mStr, 10)
   const d = parseInt(dStr, 10)
+  
+  console.log(`Parseado: año=${y}, mes=${m}, día=${d}`)
+  
   if (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) return ymd
   
-  // ✅ Crear fecha en UTC para evitar problemas de zona horaria Argentina
+  // PROBAR MÚLTIPLES MÉTODOS
+  const localDate = new Date(y, m - 1, d)
   const utcDate = new Date(Date.UTC(y, m - 1, d))
+  const stringDate = new Date(ymd + 'T12:00:00')
+  
+  console.log(`Local día: ${localDate.getDate()}`)
+  console.log(`UTC día: ${utcDate.getUTCDate()}`)
+  console.log(`String día: ${stringDate.getDate()}`)
+  console.log(`Timezone offset: ${new Date().getTimezoneOffset()}`)
   
   const weekdays = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
   const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic']
   
-  // ✅ CLAVE: Usar getUTC* en lugar de get*
-  const weekday = weekdays[utcDate.getUTCDay()]
-  const month = months[utcDate.getUTCMonth()]
-  const day = utcDate.getUTCDate().toString().padStart(2, '0')
+  // USAR MÉTODO STRING (más seguro)
+  const weekday = weekdays[stringDate.getDay()]
+  const month = months[stringDate.getMonth()]
+  const day = stringDate.getDate().toString().padStart(2, '0')
   
-  return `${weekday}, ${day} ${month} ${y}`
+  const result = `${weekday}, ${day} ${month} ${y}`
+  console.log(`Resultado: ${result}`)
+  
+  return result
 }
   
   // Formulario de crear/editar cita
