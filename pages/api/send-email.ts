@@ -87,11 +87,10 @@ export default async function handler(
       });
     }
 
-    const formattedDate = format(
-      new Date(appointmentDate),
-      "EEEE, d MMMM yyyy",
-      { locale: es }
-    );
+    // Evitar desfase por UTC al formatear una fecha YYYY-MM-DD
+    const [yStr, mStr, dStr] = appointmentDate.split("-")
+    const localDate = new Date(parseInt(yStr, 10), parseInt(mStr, 10) - 1, parseInt(dStr, 10))
+    const formattedDate = format(localDate, "EEEE, d MMMM yyyy", { locale: es })
 
     // Email para el paciente
     const patientEmailContent = `
