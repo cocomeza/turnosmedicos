@@ -114,22 +114,20 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
   const [deletingAppointment, setDeletingAppointment] = useState<AppointmentData | null>(null)
   const [availableTimes, setAvailableTimes] = useState<string[]>([])
   const [formLoading, setFormLoading] = useState(false)
-  // Formatear 'YYYY-MM-DD' en UTC para evitar desfases por zona horaria del dispositivo
-  const formatYmdUTC = (ymd: string, options?: Intl.DateTimeFormatOptions) => {
+  // Formatear 'YYYY-MM-DD' de forma determinística (sin depender de la zona horaria local)
+  const formatYmdStatic = (ymd: string) => {
     const [yStr, mStr, dStr] = (ymd || '').split('-')
     const y = parseInt(yStr, 10)
     const m = parseInt(mStr, 10)
     const d = parseInt(dStr, 10)
     if (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) return ymd
     const utcDate = new Date(Date.UTC(y, m - 1, d))
-    return utcDate.toLocaleDateString('es-ES', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      timeZone: 'UTC',
-      ...options
-    })
+    const weekdays = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
+    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic']
+    const weekday = weekdays[utcDate.getUTCDay()]
+    const month = months[m - 1]
+    const day = d.toString().padStart(2, '0')
+    return `${weekday}, ${day} ${month} ${y}`
   }
   
   // Formulario de crear/editar cita
@@ -660,7 +658,7 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
                   <tr key={appointment.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       <div>
-                        <div className="font-medium">{formatYmdUTC(appointment.appointment_date)}</div>
+                        <div className="font-medium">{formatYmdStatic(appointment.appointment_date)}</div>
                         <div className="text-gray-500">{appointment.appointment_time}</div>
                       </div>
                     </td>
@@ -1137,7 +1135,7 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
                             Doctor: Dr. {deletingAppointment.doctor.name}
                           </p>
                           <p className="text-sm text-red-700">
-                            Fecha: {formatYmdUTC(deletingAppointment.appointment_date)} a las {deletingAppointment.appointment_time}
+                            Fecha: {formatYmdStatic(deletingAppointment.appointment_date)} a las {deletingAppointment.appointment_time}
                           </p>
                         </div>
                       </div>
