@@ -211,54 +211,29 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
 
       console.log('📋 Datos del paciente a enviar:', normalizedPatientInfo)
 
-      // Crear o buscar paciente
-      let { data: patient, error: patientError } = await supabase
-        .from('patients')
-        .select('id')
-        .eq('email', normalizedPatientInfo.email)
-        .single()
+      // Usar API route para crear la cita (más seguro que conexión directa)
+      const response = await fetch('/api/appointments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          doctorId: doctorId,
+          appointmentDate: format(selectedDate, 'yyyy-MM-dd'),
+          appointmentTime: selectedTime,
+          patientInfo: normalizedPatientInfo
+        })
+      })
 
-      if (!patient || patientError) {
-        console.log('👤 Creando nuevo paciente...')
-        const { data: newPatient, error: createPatientError } = await supabase
-          .from('patients')
-          .insert([normalizedPatientInfo])
-          .select('id, name, email, phone')
-          .single()
-        
-        if (createPatientError) {
-          console.error('❌ Error creating patient:', createPatientError)
-          throw new Error('Error al registrar información del paciente')
-        }
-        
-        console.log('✅ Paciente creado:', newPatient)
-        patient = newPatient
-      } else {
-        console.log('✅ Paciente encontrado:', patient)
+      const result = await response.json()
+
+      if (!response.ok) {
+        console.error('❌ Error from API:', result)
+        setError(result.error || 'Error al crear el turno médico')
+        throw new Error(result.error || 'Error al crear el turno médico')
       }
 
-      // Crear turno
-      const appointmentData = {
-        doctor_id: doctorId,
-        patient_id: patient.id,
-        appointment_date: format(selectedDate, 'yyyy-MM-dd'),
-        appointment_time: selectedTime,
-        status: 'scheduled' as const
-      }
-
-      console.log('📅 Datos de la cita a crear:', appointmentData)
-
-      const { data: newAppointment, error: appointmentError } = await supabase
-        .from('appointments')
-        .insert([appointmentData])
-        .select()
-        .single()
-
-      if (appointmentError) {
-        console.error('❌ Error creating appointment:', appointmentError)
-        throw new Error('Error al crear el turno médico')
-      }
-
+      const newAppointment = result.appointment
       console.log('✅ Turno creado exitosamente:', newAppointment)
       
       // Almacenar datos para el comprobante y email
