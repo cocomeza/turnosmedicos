@@ -114,6 +114,15 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
   const [deletingAppointment, setDeletingAppointment] = useState<AppointmentData | null>(null)
   const [availableTimes, setAvailableTimes] = useState<string[]>([])
   const [formLoading, setFormLoading] = useState(false)
+  // Utilidad: parsear 'YYYY-MM-DD' como fecha local (evita desfase por UTC)
+  const parseLocalDateFromYMD = (ymd: string) => {
+    const [yStr, mStr, dStr] = (ymd || '').split('-')
+    const y = parseInt(yStr, 10)
+    const m = parseInt(mStr, 10)
+    const d = parseInt(dStr, 10)
+    if (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) return new Date(ymd)
+    return new Date(y, m - 1, d)
+  }
   
   // Formulario de crear/editar cita
   const [appointmentForm, setAppointmentForm] = useState<CreateAppointmentForm>({
@@ -644,7 +653,7 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       <div>
                         <div className="font-medium">
-                          {new Date(appointment.appointment_date).toLocaleDateString('es-ES', {
+                          {parseLocalDateFromYMD(appointment.appointment_date).toLocaleDateString('es-ES', {
                             weekday: 'short',
                             year: 'numeric',
                             month: 'short',
@@ -1127,7 +1136,7 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
                             Doctor: Dr. {deletingAppointment.doctor.name}
                           </p>
                           <p className="text-sm text-red-700">
-                            Fecha: {new Date(deletingAppointment.appointment_date).toLocaleDateString('es-ES')} a las {deletingAppointment.appointment_time}
+                            Fecha: {parseLocalDateFromYMD(deletingAppointment.appointment_date).toLocaleDateString('es-ES')} a las {deletingAppointment.appointment_time}
                           </p>
                         </div>
                       </div>
