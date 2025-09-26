@@ -563,6 +563,90 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
         </div>
       </div>
 
+      {/* Modal de Confirmación */}
+      <Transition appear show={showConfirmModal} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setShowConfirmModal(false)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black/25 backdrop-blur-sm" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                  <div className="text-center">
+                    <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-gradient-to-r from-blue-400 to-blue-600 mb-6">
+                      <Calendar className="h-8 w-8 text-white" />
+                    </div>
+                    <Dialog.Title as="h3" className="text-2xl font-bold text-gray-900 mb-3">
+                      Confirmar Reserva
+                    </Dialog.Title>
+                    <div className="bg-blue-50 p-4 rounded-xl mb-6">
+                      <p className="text-blue-800 font-medium mb-2">
+                        ¿Confirmas la reserva del turno médico?
+                      </p>
+                      <div className="text-sm text-blue-700 space-y-1">
+                        <p><strong>Doctor:</strong> Dr. {doctor?.name}</p>
+                        <p><strong>Especialidad:</strong> {doctor?.specialty?.name}</p>
+                        <p><strong>Fecha:</strong> {selectedDate && format(selectedDate, 'd MMMM yyyy', { locale: es })}</p>
+                        <p><strong>Hora:</strong> {selectedTime}</p>
+                        <p><strong>Paciente:</strong> {patientInfo.name}</p>
+                        <p><strong>Email:</strong> {patientInfo.email}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <button
+                        type="button"
+                        className="w-full inline-flex justify-center items-center rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-colors disabled:bg-gray-400"
+                        onClick={handleBookAppointment}
+                        disabled={isBooking}
+                      >
+                        {isBooking ? (
+                          <>
+                            <div className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full"></div>
+                            Reservando...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            Confirmar Reserva
+                          </>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        className="w-full inline-flex justify-center rounded-lg bg-gray-600 px-4 py-3 text-sm font-medium text-white hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500"
+                        onClick={() => setShowConfirmModal(false)}
+                        disabled={isBooking}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+
       {/* Modal de Éxito */}
       <Transition appear show={showSuccessModal} as={Fragment}>
         <Dialog as="div" className="relative z-50" onClose={() => setShowSuccessModal(false)}>

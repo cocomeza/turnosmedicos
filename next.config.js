@@ -13,7 +13,7 @@ const nextConfig = {
   // Configuración para permitir Replit preview (solo en desarrollo)  
   experimental: {
     ...(process.env.NODE_ENV === 'development' && {
-      allowedDevOrigins: ['*']
+      allowedHosts: ['*']
     })
   },
 

@@ -64,6 +64,10 @@ export async function getAppointmentsForAdmin({
   sortBy = 'date',
   sortOrder = 'desc'
 }: AdminAppointmentsFilter = {}) {
+  console.log('🔍 DEBUG getAppointmentsForAdmin llamada con filtros:', {
+    search, startDate, endDate, status, doctorId, page, limit, sortBy, sortOrder
+  })
+
   let query = supabaseAdmin
     .from('appointments')
     .select(`
@@ -145,9 +149,22 @@ export async function getAppointmentsForAdmin({
   const { data, error, count } = await query
 
   if (error) {
-    console.error('Error fetching admin appointments:', error)
+    console.error('❌ Error fetching admin appointments:', error)
     throw error
   }
+
+  console.log('✅ DEBUG getAppointmentsForAdmin resultado:', {
+    appointmentsCount: data?.length || 0,
+    totalCount: count || 0,
+    page,
+    totalPages: Math.ceil((count || 0) / limit),
+    firstAppointment: data?.[0] ? {
+      id: data[0].id,
+      date: data[0].appointment_date,
+      time: data[0].appointment_time,
+      patientName: data[0].patient?.name
+    } : 'No hay citas'
+  })
 
   return {
     appointments: (data || []) as unknown as AppointmentWithDetails[],
