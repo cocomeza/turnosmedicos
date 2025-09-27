@@ -115,21 +115,29 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
   const [availableTimes, setAvailableTimes] = useState<string[]>([])
   const [formLoading, setFormLoading] = useState(false)
   // Formatear 'YYYY-MM-DD' de forma determinística (sin depender de la zona horaria local)
-  const formatYmdStatic = (ymd: string) => {
-    const [yStr, mStr, dStr] = (ymd || '').split('-')
-    const y = parseInt(yStr, 10)
-    const m = parseInt(mStr, 10)
-    const d = parseInt(dStr, 10)
-    if (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) return ymd
-    const utcDate = new Date(Date.UTC(y, m - 1, d + 1))
-    const weekdays = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
-    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic']
-    const weekday = weekdays[utcDate.getUTCDay()]
-    const month = months[m - 1]
-    const day = d.toString().padStart(2, '0')
-    return `${weekday}, ${day} ${month} ${y}`
-  }
+ const formatYmdStatic = (ymd: string) => {
+  const [yStr, mStr, dStr] = (ymd || '').split('-')
+  const y = parseInt(yStr, 10)
+  const m = parseInt(mStr, 10)
+  const d = parseInt(dStr, 10)
+  if (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) return ymd
   
+  // Crear fecha base
+  const date = new Date(y, m - 1, d)
+  
+  // ✅ SOLUCIÓN: Agregar +1 día automáticamente
+  date.setDate(date.getDate() + 1)
+  
+  const weekdays = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
+  const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic']
+  
+  const weekday = weekdays[date.getDay()]
+  const month = months[date.getMonth()]
+  const day = date.getDate().toString().padStart(2, '0')
+  const year = date.getFullYear()
+  
+  return `${weekday}, ${day} ${month} ${year}`
+}
   // Formulario de crear/editar cita
   const [appointmentForm, setAppointmentForm] = useState<CreateAppointmentForm>({
     doctorId: '',
