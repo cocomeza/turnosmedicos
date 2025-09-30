@@ -116,26 +116,30 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
   const [formLoading, setFormLoading] = useState(false)
   
   // ✅ SOLUCIÓN DEFINITIVA - Sin crear objetos Date locales
-  const formatYmdStatic = (ymd: string) => {
-    if (!ymd) return ymd
-    
+  const formatYmdStatic = (rawDate: string) => {
+    if (!rawDate) return rawDate
+
     try {
-      // Forzar UTC agregando T12:00:00Z para evitar problemas de zona horaria
-      const date = new Date(ymd + 'T12:00:00Z')
-      
+      // Si se recibe un timestamp (p. ej. "2025-09-30T00:00:00+00:00"),
+      // extraemos solo la parte de la fecha para evitar desfases por zona horaria.
+      const ymd = rawDate.split('T')[0]
+
+      // Para mantener la fecha intacta en cualquier zona horaria, creamos la Date
+      // en UTC al mediodía (para evitar cambios de horario de verano).
+      const date = new Date(`${ymd}T12:00:00Z`)
+
       const weekdays = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
       const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic']
-      
-      // Usar métodos UTC para evitar conversión de zona horaria
+
       const weekday = weekdays[date.getUTCDay()]
       const month = months[date.getUTCMonth()]
       const day = date.getUTCDate().toString().padStart(2, '0')
       const year = date.getUTCFullYear()
-      
+
       return `${weekday}, ${day} ${month} ${year}`
     } catch (error) {
-      console.error('Error formateando fecha:', ymd, error)
-      return ymd
+      console.error('Error formateando fecha:', rawDate, error)
+      return rawDate
     }
   }
   
