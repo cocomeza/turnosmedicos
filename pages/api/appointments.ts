@@ -4,8 +4,9 @@ import {
   updateAppointmentStatus, 
   createAppointmentForAdmin,
   updateAppointmentForAdmin,
-  deleteAppointmentForAdmin 
-} from '../../../src/lib/supabase-admin'
+  deleteAppointmentForAdmin,
+  createPatientForAdmin
+} from '../../src/lib/supabase-admin'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // La autenticación se maneja en el middleware
@@ -69,18 +70,60 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'POST') {
     try {
-      const { doctorId, patientId, appointmentDate, appointmentTime, status, notes } = req.body
+      // Manejar tanto requests del admin como del frontend
+      const { doctorId, patientId, appointmentDate, appointmentTime, status, notes, patientInfo } = req.body
 
-      if (!doctorId || !patientId || !appointmentDate || !appointmentTime) {
-        return res.status(400).json({ error: 'Doctor, paciente, fecha y hora son requeridos' })
+      if (!doctorId || !appointmentDate || !appointmentTime) {
+        return res.status(400).json({ error: 'Doctor, fecha y hora son requeridos' })
+      }
+
+      let finalPatientId = patientId
+
+      // Si viene patientInfo (desde el frontend), crear o encontrar el paciente
+      if (patientInfo && !patientId) {
+        if (!patientInfo.name || !patientInfo.email) {
+          return res.status(400).json({ error: 'Nombre y email del paciente son requeridos' })
+        }
+
+        try {
+          // Intentar crear el paciente (si ya existe, usar el existente)
+          const newPatient = await createPatientForAdmin({
+            name: patientInfo.name,
+            email: patientInfo.email,
+            phone: patientInfo.phone || ''
+          })
+          finalPatientId = newPatient.id
+        } catch (error: any) {
+          // Si el error es que ya existe, buscar el paciente existente
+          if (error.message.includes('Ya existe un paciente')) {
+            const { supabaseAdmin } = await import('../../src/lib/supabase-admin')
+            const { data: existingPatient } = await supabaseAdmin
+              .from('patients')
+              .select('id')
+              .eq('email', patientInfo.email)
+              .single()
+            
+            if (existingPatient) {
+              finalPatientId = existingPatient.id
+            } else {
+              throw error
+            }
+          } else {
+            throw error
+          }
+        }
+      }
+
+      if (!finalPatientId) {
+        return res.status(400).json({ error: 'ID de paciente requerido' })
       }
 
       const newAppointment = await createAppointmentForAdmin({
         doctorId,
-        patientId,
+        patientId: finalPatientId,
         appointmentDate,
         appointmentTime,
-        status,
+        status: status || 'scheduled',
         notes
       })
 

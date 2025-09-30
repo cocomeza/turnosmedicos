@@ -115,24 +115,28 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
   const [availableTimes, setAvailableTimes] = useState<string[]>([])
   const [formLoading, setFormLoading] = useState(false)
   
-  // ✅ SOLUCIÓN DEFINITIVA - Sin crear objetos Date locales
+  // ✅ SOLUCIÓN DEFINITIVA - Parseo directo sin conversión de zona horaria
   const formatYmdStatic = (ymd: string) => {
     if (!ymd) return ymd
     
     try {
-      // Forzar UTC agregando T12:00:00Z para evitar problemas de zona horaria
-      const date = new Date(ymd + 'T12:00:00Z')
+      // Parsear directamente la fecha YYYY-MM-DD sin crear objeto Date
+      const [year, month, day] = ymd.split('-').map(Number)
+      
+      if (!year || !month || !day) {
+        console.error('Formato de fecha inválido:', ymd)
+        return ymd
+      }
       
       const weekdays = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
       const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic']
       
-      // Usar métodos UTC para evitar conversión de zona horaria
-      const weekday = weekdays[date.getUTCDay()]
-      const month = months[date.getUTCMonth()]
-      const day = date.getUTCDate().toString().padStart(2, '0')
-      const year = date.getUTCFullYear()
+      // Crear fecha local para obtener el día de la semana sin problemas de UTC
+      const localDate = new Date(year, month - 1, day)
+      const weekday = weekdays[localDate.getDay()]
+      const monthName = months[month - 1]
       
-      return `${weekday}, ${day} ${month} ${year}`
+      return `${weekday}, ${day.toString().padStart(2, '0')} ${monthName} ${year}`
     } catch (error) {
       console.error('Error formateando fecha:', ymd, error)
       return ymd
