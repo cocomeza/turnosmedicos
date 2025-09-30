@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Search, Stethoscope, Heart, Brain, Users, Eye, Scissors, Baby } from 'lucide-react'
 import { Combobox } from '@headlessui/react'
 import { Specialty } from '../lib/supabase'
@@ -25,11 +25,16 @@ export default function SpecialtySearch({ specialties, onSelectSpecialty }: Spec
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedSpecialty, setSelectedSpecialty] = useState<Specialty | null>(null)
 
-  const filteredSpecialties = searchTerm === '' 
-    ? specialties 
-    : specialties.filter(specialty =>
-        specialty.name.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+  // Memorizar las especialidades filtradas para evitar recálculos innecesarios
+  const filteredSpecialties = useMemo(() => {
+    if (searchTerm === '') return specialties
+    
+    const lowerSearchTerm = searchTerm.toLowerCase()
+    return specialties.filter(specialty =>
+      specialty.name.toLowerCase().includes(lowerSearchTerm) ||
+      specialty.description?.toLowerCase().includes(lowerSearchTerm)
+    )
+  }, [searchTerm, specialties])
 
   return (
     <div className="space-y-8">
