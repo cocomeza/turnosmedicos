@@ -115,24 +115,32 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
   const [availableTimes, setAvailableTimes] = useState<string[]>([])
   const [formLoading, setFormLoading] = useState(false)
   
-  // ✅ SOLUCIÓN DEFINITIVA - Sin crear objetos Date locales
+  // ✅ SOLUCIÓN DEFINITIVA - Parsear fecha correctamente sin desfase de zona horaria
   const formatYmdStatic = (ymd: string) => {
     if (!ymd) return ymd
     
     try {
-      // Forzar UTC agregando T12:00:00Z para evitar problemas de zona horaria
-      const date = new Date(ymd + 'T12:00:00Z')
+      // Parsear la fecha manualmente desde el formato YYYY-MM-DD
+      // Esto evita los problemas de zona horaria de JavaScript
+      const [yearStr, monthStr, dayStr] = ymd.split('-')
+      const year = parseInt(yearStr, 10)
+      const month = parseInt(monthStr, 10) - 1 // Los meses en JS son 0-indexed
+      const day = parseInt(dayStr, 10)
+      
+      // Crear la fecha usando el constructor con año, mes, día
+      // Esto crea la fecha en la zona horaria local, no en UTC
+      const date = new Date(year, month, day)
       
       const weekdays = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
       const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic']
       
-      // Usar métodos UTC para evitar conversión de zona horaria
-      const weekday = weekdays[date.getUTCDay()]
-      const month = months[date.getUTCMonth()]
-      const day = date.getUTCDate().toString().padStart(2, '0')
-      const year = date.getUTCFullYear()
+      // Usar métodos locales (no UTC) ya que la fecha se creó en zona horaria local
+      const weekday = weekdays[date.getDay()]
+      const monthName = months[date.getMonth()]
+      const dayFormatted = date.getDate().toString().padStart(2, '0')
+      const yearFormatted = date.getFullYear()
       
-      return `${weekday}, ${day} ${month} ${year}`
+      return `${weekday}, ${dayFormatted} ${monthName} ${yearFormatted}`
     } catch (error) {
       console.error('Error formateando fecha:', ymd, error)
       return ymd

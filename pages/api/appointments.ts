@@ -1,143 +1,109 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { 
-  getAppointmentsForAdmin, 
-  updateAppointmentStatus, 
-  createAppointmentForAdmin,
-  updateAppointmentForAdmin,
-  deleteAppointmentForAdmin 
-} from '../../../src/lib/supabase-admin'
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // La autenticación se maneja en el middleware
-
-  if (req.method === 'GET') {
-    try {
-      const {
-        search,
-        startDate,
-        endDate,
-        status,
-        doctorId,
-        page = '1',
-        limit = '10',
-        sortBy = 'date',
-        sortOrder = 'desc'
-      } = req.query
-
-      const filters = {
-        search: search as string,
-        startDate: startDate as string,
-        endDate: endDate as string,
-        status: status as string,
-        doctorId: doctorId as string,
-        page: parseInt(page as string),
-        limit: parseInt(limit as string),
-        sortBy: sortBy as 'date' | 'doctor' | 'patient',
-        sortOrder: sortOrder as 'asc' | 'desc'
-      }
-
-      const result = await getAppointmentsForAdmin(filters)
-      return res.status(200).json(result)
-    } catch (error) {
-      console.error('Error fetching appointments:', error)
-      return res.status(500).json({ error: 'Error al obtener citas' })
-    }
-  }
-
-  if (req.method === 'PATCH') {
-    try {
-      const { appointmentId, status } = req.body
-
-      if (!appointmentId || !status) {
-        return res.status(400).json({ error: 'ID de cita y estado requeridos' })
-      }
-
-      if (!['scheduled', 'completed', 'cancelled'].includes(status)) {
-        return res.status(400).json({ error: 'Estado inválido' })
-      }
-
-      const updatedAppointment = await updateAppointmentStatus(appointmentId, status)
-      return res.status(200).json({ 
-        success: true, 
-        appointment: updatedAppointment 
-      })
-    } catch (error) {
-      console.error('Error updating appointment:', error)
-      return res.status(500).json({ error: 'Error al actualizar cita' })
-    }
-  }
-
   if (req.method === 'POST') {
     try {
-      const { doctorId, patientId, appointmentDate, appointmentTime, status, notes } = req.body
+      const { doctorId, appointmentDate, appointmentTime, patientInfo } = req.body
 
-      if (!doctorId || !patientId || !appointmentDate || !appointmentTime) {
-        return res.status(400).json({ error: 'Doctor, paciente, fecha y hora son requeridos' })
+      if (!doctorId || !appointmentDate || !appointmentTime || !patientInfo) {
+        return res.status(400).json({ error: 'Todos los campos son requeridos' })
       }
 
-      const newAppointment = await createAppointmentForAdmin({
-        doctorId,
-        patientId,
-        appointmentDate,
-        appointmentTime,
-        status,
-        notes
-      })
+      // Verificar o crear paciente
+      let patientId
+      
+      // Buscar paciente existente por email
+      const { data: existingPatient } = await supabaseAdmin
+        .from('patients')
+        .select('id')
+        .eq('email', patientInfo.email)
+        .single()
+
+      if (existingPatient) {
+        patientId = existingPatient.id
+      } else {
+        // Crear nuevo paciente
+        const { data: newPatient, error: patientError } = await supabaseAdmin
+          .from('patients')
+          .insert([{
+            name: patientInfo.name,
+            email: patientInfo.email,
+            phone: patientInfo.phone || ''
+          }])
+          .select()
+          .single()
+
+        if (patientError) {
+          console.error('Error creating patient:', patientError)
+          return res.status(400).json({ error: 'Error al crear el paciente' })
+        }
+
+        patientId = newPatient.id
+      }
+
+      // Verificar disponibilidad del horario
+      const { data: existingAppointment } = await supabaseAdmin
+        .from('appointments')
+        .select('id')
+        .eq('doctor_id', doctorId)
+        .eq('appointment_date', appointmentDate)
+        .eq('appointment_time', appointmentTime)
+        .neq('status', 'cancelled')
+        .single()
+
+      if (existingAppointment) {
+        return res.status(400).json({ error: 'El horario seleccionado ya está ocupado' })
+      }
+
+      // Crear la cita
+      const { data: appointment, error: appointmentError } = await supabaseAdmin
+        .from('appointments')
+        .insert([{
+          doctor_id: doctorId,
+          patient_id: patientId,
+          appointment_date: appointmentDate,
+          appointment_time: appointmentTime,
+          status: 'scheduled'
+        }])
+        .select(`
+          id,
+          appointment_date,
+          appointment_time,
+          status,
+          created_at,
+          doctor:doctors(
+            id,
+            name,
+            email,
+            specialty:specialties(name)
+          ),
+          patient:patients(
+            id,
+            name,
+            email,
+            phone
+          )
+        `)
+        .single()
+
+      if (appointmentError) {
+        console.error('Error creating appointment:', appointmentError)
+        return res.status(400).json({ error: 'Error al crear la cita' })
+      }
 
       return res.status(201).json({ 
         success: true, 
-        appointment: newAppointment 
+        appointment 
       })
     } catch (error: any) {
-      console.error('Error creating appointment:', error)
-      return res.status(400).json({ error: error.message || 'Error al crear la cita' })
-    }
-  }
-
-  if (req.method === 'PUT') {
-    try {
-      const { appointmentId, doctorId, patientId, appointmentDate, appointmentTime, status, notes } = req.body
-
-      if (!appointmentId) {
-        return res.status(400).json({ error: 'ID de cita requerido' })
-      }
-
-      const updatedAppointment = await updateAppointmentForAdmin(appointmentId, {
-        doctorId,
-        patientId,
-        appointmentDate,
-        appointmentTime,
-        status,
-        notes
-      })
-
-      return res.status(200).json({ 
-        success: true, 
-        appointment: updatedAppointment 
-      })
-    } catch (error: any) {
-      console.error('Error updating appointment:', error)
-      return res.status(400).json({ error: error.message || 'Error al actualizar la cita' })
-    }
-  }
-
-  if (req.method === 'DELETE') {
-    try {
-      const { appointmentId } = req.body
-
-      if (!appointmentId) {
-        return res.status(400).json({ error: 'ID de cita requerido' })
-      }
-
-      const deletedAppointment = await deleteAppointmentForAdmin(appointmentId)
-
-      return res.status(200).json({ 
-        success: true, 
-        appointment: deletedAppointment 
-      })
-    } catch (error: any) {
-      console.error('Error deleting appointment:', error)
-      return res.status(400).json({ error: error.message || 'Error al eliminar la cita' })
+      console.error('Error in appointment creation:', error)
+      return res.status(500).json({ error: error.message || 'Error al procesar la solicitud' })
     }
   }
 
