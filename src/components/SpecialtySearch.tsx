@@ -2,7 +2,8 @@
 import { useState } from 'react'
 import { Search, Stethoscope, Heart, Brain, Users, Eye, Scissors, Baby } from 'lucide-react'
 import { Combobox } from '@headlessui/react'
-import { Specialty } from '../lib/supabase'
+import { Specialty, supabase, isSupabaseConfigured } from '../lib/supabase'
+import { cache, CACHE_KEYS, CACHE_EXPIRY } from '../lib/cache'
 
 interface SpecialtySearchProps {
   specialties: Specialty[]
@@ -24,6 +25,34 @@ const getSpecialtyIcon = (specialtyName: string) => {
 export default function SpecialtySearch({ specialties, onSelectSpecialty }: SpecialtySearchProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedSpecialty, setSelectedSpecialty] = useState<Specialty | null>(null)
+
+  // Prefetch doctors data when hovering over a specialty
+  const prefetchDoctors = async (specialtyId: string) => {
+    if (!isSupabaseConfigured()) return
+    
+    const cacheKey = CACHE_KEYS.DOCTORS(specialtyId)
+    // Only prefetch if not already cached
+    if (cache.has(cacheKey)) return
+    
+    try {
+      const { data } = await supabase
+        .from('doctors')
+        .select(`
+          *,
+          specialty:specialties(name)
+        `)
+        .eq('specialty_id', specialtyId)
+        .eq('is_active', true)
+        .order('name')
+      
+      if (data) {
+        cache.set(cacheKey, data, CACHE_EXPIRY.DOCTORS)
+      }
+    } catch (error) {
+      // Silently fail prefetch - not critical
+      console.debug('Prefetch failed for specialty:', specialtyId)
+    }
+  }
 
   const filteredSpecialties = searchTerm === '' 
     ? specialties 
@@ -87,6 +116,7 @@ export default function SpecialtySearch({ specialties, onSelectSpecialty }: Spec
                         }`
                       }
                       value={specialty}
+                      onMouseEnter={() => prefetchDoctors(specialty.id)}
                     >
                       {({ selected, active }) => (
                         <div className="flex items-center space-x-3">
