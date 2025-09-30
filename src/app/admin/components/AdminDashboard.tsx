@@ -26,7 +26,8 @@ import { Fragment } from 'react'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import type { AdminUser } from '../../../lib/admin-auth'
-import { formatDateForDisplay, getTodayString } from '../../../lib/date-utils'
+import { formatDateForDisplay, getTodayString, fixDateFromDatabase, debugDateProblem } from '../../../lib/date-utils'
+import { debugDateIssues, testDateFormatting } from '../../../lib/debug-dates-browser'
 
 interface AdminDashboardProps {
   adminUser: AdminUser
@@ -116,8 +117,28 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
   const [availableTimes, setAvailableTimes] = useState<string[]>([])
   const [formLoading, setFormLoading] = useState(false)
   
-  // Usar función centralizada para formateo de fechas
-  const formatYmdStatic = formatDateForDisplay
+  // Usar función centralizada para formateo de fechas con depuración y corrección
+  const formatYmdStatic = (ymd: string) => {
+    console.log(`🔍 Formateando fecha: ${ymd}`)
+    
+    // Depurar el problema específico
+    debugDateProblem(ymd, 'AdminDashboard')
+    
+    // Corregir la fecha si viene de la base de datos
+    const correctedDate = fixDateFromDatabase(ymd)
+    
+    // Formatear para mostrar
+    const result = formatDateForDisplay(correctedDate)
+    console.log(`📅 Resultado final: ${result}`)
+    
+    // Depuración adicional
+    const testResult = testDateFormatting(ymd)
+    if (testResult.hasIssue) {
+      console.warn(`⚠️ PROBLEMA DETECTADO con fecha ${ymd}:`, testResult)
+    }
+    
+    return result
+  }
   
   // Formulario de crear/editar cita
   const [appointmentForm, setAppointmentForm] = useState<CreateAppointmentForm>({
@@ -154,6 +175,21 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
 
       setStats(statsData.stats)
       setDoctors(statsData.doctors)
+      
+      // Depurar las fechas que vienen de la API
+      console.log('📊 Datos de citas recibidos:', appointmentsData.appointments)
+      if (appointmentsData.appointments && appointmentsData.appointments.length > 0) {
+        appointmentsData.appointments.forEach((appointment: AppointmentData, index: number) => {
+          console.log(`📅 Cita ${index + 1}:`, {
+            id: appointment.id,
+            appointment_date: appointment.appointment_date,
+            appointment_time: appointment.appointment_time,
+            patient: appointment.patient?.name
+          })
+          debugDateProblem(appointment.appointment_date, `Cita ${index + 1}`)
+        })
+      }
+      
       setAppointments(appointmentsData.appointments)
       setTotalPages(appointmentsData.totalPages)
       setPatients(patientsData.patients)
@@ -166,6 +202,14 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
   }
 
   useEffect(() => {
+    // Depuración temporal de fechas
+    debugDateIssues()
+    
+    // Probar con fechas específicas
+    testDateFormatting('2024-01-30')
+    testDateFormatting('2024-12-31')
+    testDateFormatting('2024-02-29')
+    
     fetchData()
   }, [currentPage, search, statusFilter, doctorFilter, dateFromFilter, dateToFilter])
 
