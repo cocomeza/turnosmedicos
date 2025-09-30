@@ -3,9 +3,12 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Settings } from 'lucide-react'
 import { supabase, Specialty, isSupabaseConfigured } from '../lib/supabase'
+import { cache, CACHE_KEYS } from '../lib/cache'
+import { PERFORMANCE_CONFIG, getDynamicTimeout } from '../lib/performance-config'
 import SpecialtySearch from '../components/SpecialtySearch'
 import DoctorList from '../components/DoctorList'
 import AppointmentBooking from '../components/AppointmentBooking'
+import LoadingSkeleton from '../components/LoadingSkeleton'
 
 // Datos de ejemplo para mostrar la interfaz cuando Supabase no está configurado
 const mockSpecialties: Specialty[] = [
@@ -46,13 +49,20 @@ export default function Home() {
   const [selectedSpecialty, setSelectedSpecialty] = useState<string | null>(null)
   const [selectedDoctor, setSelectedDoctor] = useState<string | null>(null)
   const [supabaseEnabled, setSupabaseEnabled] = useState(false)
+  const [isLoadingSpecialties, setIsLoadingSpecialties] = useState(false)
 
   useEffect(() => {
     const configured = isSupabaseConfigured()
     setSupabaseEnabled(configured)
     
     if (configured) {
-      fetchSpecialties()
+      setIsLoadingSpecialties(true)
+      // Lazy loading: solo cargar cuando sea necesario
+      const timer = setTimeout(() => {
+        fetchSpecialties()
+      }, PERFORMANCE_CONFIG.LAZY_LOADING.INITIAL_DELAY)
+      
+      return () => clearTimeout(timer)
     } else {
       // Usar datos de ejemplo si Supabase no está configurado
       setSpecialties(mockSpecialties)
@@ -61,12 +71,31 @@ export default function Home() {
 
   const fetchSpecialties = async () => {
     try {
-      const { data, error } = await supabase
-        .from('specialties')
-        .select('*')
-        .order('name')
+      // Verificar caché primero
+      const cachedSpecialties = cache.get<Specialty[]>(CACHE_KEYS.SPECIALTIES)
+      if (cachedSpecialties) {
+        setSpecialties(cachedSpecialties)
+        setIsLoadingSpecialties(false)
+        return
+      }
+
+      // Agregar timeout y optimización de consulta
+      const { data, error } = await Promise.race([
+        supabase
+          .from('specialties')
+          .select('id, name, description') // Solo campos necesarios
+          .order('name')
+          .limit(PERFORMANCE_CONFIG.LIMITS.SPECIALTIES), // Limitar resultados para mejorar rendimiento
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout')), getDynamicTimeout(PERFORMANCE_CONFIG.TIMEOUTS.SPECIALTIES_FETCH))
+        )
+      ]) as any
       
-      if (data) setSpecialties(data)
+      if (data) {
+        setSpecialties(data)
+        // Guardar en caché
+        cache.set(CACHE_KEYS.SPECIALTIES, data, PERFORMANCE_CONFIG.CACHE_TTL.SPECIALTIES)
+      }
       if (error) {
         console.error('Error fetching specialties:', error)
         // Fallback a datos de ejemplo si hay error
@@ -76,6 +105,8 @@ export default function Home() {
       console.error('Error connecting to Supabase:', error)
       // Usar datos de ejemplo si hay problemas de conexión
       setSpecialties(mockSpecialties)
+    } finally {
+      setIsLoadingSpecialties(false)
     }
   }
 
@@ -112,10 +143,14 @@ export default function Home() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {!selectedSpecialty ? (
-          <SpecialtySearch 
-            specialties={specialties}
-            onSelectSpecialty={setSelectedSpecialty}
-          />
+          isLoadingSpecialties ? (
+            <LoadingSkeleton type="specialties" />
+          ) : (
+            <SpecialtySearch 
+              specialties={specialties}
+              onSelectSpecialty={setSelectedSpecialty}
+            />
+          )
         ) : !selectedDoctor ? (
           <DoctorList 
             specialtyId={selectedSpecialty}

@@ -2,6 +2,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { ArrowLeft, User, Star, Phone, Mail, Award, Clock, Calendar } from 'lucide-react'
 import { supabase, Doctor } from '../lib/supabase'
+import { cache, CACHE_KEYS } from '../lib/cache'
+import { performanceMonitor } from '../lib/performance-monitor'
+import { PERFORMANCE_CONFIG, getDynamicTimeout } from '../lib/performance-config'
 
 interface DoctorListProps {
   specialtyId: string
@@ -15,18 +18,54 @@ export default function DoctorList({ specialtyId, onSelectDoctor, onBack }: Doct
 
   const fetchDoctors = useCallback(async () => {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('doctors')
-      .select(`
-        *,
-        specialty:specialties(name)
-      `)
-      .eq('specialty_id', specialtyId)
-      .eq('is_active', true)
     
-    if (data) setDoctors(data)
-    if (error) console.error('Error fetching doctors:', error)
-    setLoading(false)
+    return performanceMonitor.measureAsync('fetch_doctors', async () => {
+      try {
+        // Verificar caché primero
+        const cacheKey = CACHE_KEYS.DOCTORS(specialtyId)
+        const cachedDoctors = cache.get<Doctor[]>(cacheKey)
+        if (cachedDoctors) {
+          setDoctors(cachedDoctors)
+          setLoading(false)
+          return
+        }
+
+        // Optimización: consulta más específica y con timeout
+        const { data, error } = await Promise.race([
+          supabase
+            .from('doctors')
+            .select(`
+              id,
+              name,
+              email,
+              phone,
+              bio,
+              years_experience,
+              specialty_id,
+              specialty:specialties(name)
+            `)
+            .eq('specialty_id', specialtyId)
+            .eq('is_active', true)
+            .order('name')
+            .limit(PERFORMANCE_CONFIG.LIMITS.DOCTORS), // Limitar resultados para mejorar rendimiento
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout')), getDynamicTimeout(PERFORMANCE_CONFIG.TIMEOUTS.DOCTORS_FETCH))
+          )
+        ]) as any
+        
+        if (data) {
+          setDoctors(data)
+          // Guardar en caché
+          cache.set(cacheKey, data, PERFORMANCE_CONFIG.CACHE_TTL.DOCTORS)
+        }
+        if (error) console.error('Error fetching doctors:', error)
+      } catch (error) {
+        console.error('Error fetching doctors:', error)
+        setDoctors([]) // Mostrar lista vacía en caso de error
+      } finally {
+        setLoading(false)
+      }
+    })
   }, [specialtyId])
 
   useEffect(() => {
@@ -35,10 +74,25 @@ export default function DoctorList({ specialtyId, onSelectDoctor, onBack }: Doct
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="bg-white p-8 rounded-2xl shadow-lg">
-          <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">Buscando los mejores especialistas...</p>
+      <div className="space-y-8">
+        {/* Botón para volver */}
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={onBack}
+            className="flex items-center text-blue-600 hover:text-blue-800 transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5 mr-2" />
+            Volver a especialidades
+          </button>
+        </div>
+
+        {/* Loading state mejorado */}
+        <div className="flex items-center justify-center py-12">
+          <div className="bg-white p-8 rounded-2xl shadow-lg">
+            <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+            <p className="text-gray-600 font-medium">Buscando los mejores especialistas...</p>
+            <p className="text-sm text-gray-500 mt-2">Esto puede tomar unos segundos</p>
+          </div>
         </div>
       </div>
     )
