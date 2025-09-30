@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { getTodayString, getDayOfWeek } from './date-utils'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -195,7 +196,8 @@ export async function getDoctorsForAdmin() {
 }
 
 export async function getAppointmentStats() {
-  const today = new Date().toISOString().split('T')[0]
+  // Obtener fecha de hoy en zona horaria local para evitar desfases
+  const today = getTodayString()
   
   const [
     { count: totalAppointments },
@@ -412,11 +414,8 @@ export async function createPatientForAdmin(patientData: { name: string; email: 
 }
 
 export async function getAvailableTimesForAdmin(doctorId: string, date: string) {
-  // Obtener horario del médico para ese día
-  // Evitar desfase por UTC: construir fecha en horario local a partir de YYYY-MM-DD
-  const [yearStr, monthStr, dayStr] = date.split('-')
-  const localDate = new Date(parseInt(yearStr, 10), parseInt(monthStr, 10) - 1, parseInt(dayStr, 10))
-  const dayOfWeek = localDate.getDay()
+  // Obtener horario del médico para ese día usando función centralizada
+  const dayOfWeek = getDayOfWeek(date)
   
   const { data: schedule } = await supabaseAdmin
     .from('doctor_schedules')

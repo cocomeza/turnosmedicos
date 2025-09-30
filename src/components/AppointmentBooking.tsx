@@ -5,6 +5,7 @@ import { Dialog, Transition } from '@headlessui/react'
 import { supabase, Doctor } from '../lib/supabase'
 import { format, isSameDay, setHours, setMinutes, addMinutes } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { formatDateForAPI } from '../lib/date-utils'
 import { Fragment } from 'react'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
@@ -36,10 +37,7 @@ const formatName = (name: string): string => {
     .join(' ')
 }
 
-// Función para formatear fecha sin problemas de zona horaria
-const formatDateForAPI = (date: Date): string => {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
+// Usar función centralizada para formateo de fechas
 
 export default function AppointmentBooking({ doctorId, onBack }: AppointmentBookingProps) {
   const [doctor, setDoctor] = useState<Doctor | null>(null)

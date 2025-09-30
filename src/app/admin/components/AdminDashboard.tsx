@@ -26,6 +26,7 @@ import { Fragment } from 'react'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import type { AdminUser } from '../../../lib/admin-auth'
+import { formatDateForDisplay, getTodayString } from '../../../lib/date-utils'
 
 interface AdminDashboardProps {
   adminUser: AdminUser
@@ -115,29 +116,8 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
   const [availableTimes, setAvailableTimes] = useState<string[]>([])
   const [formLoading, setFormLoading] = useState(false)
   
-  // ✅ SOLUCIÓN DEFINITIVA - Sin crear objetos Date locales
-  const formatYmdStatic = (ymd: string) => {
-    if (!ymd) return ymd
-    
-    try {
-      // Forzar UTC agregando T12:00:00Z para evitar problemas de zona horaria
-      const date = new Date(ymd + 'T12:00:00Z')
-      
-      const weekdays = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
-      const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic']
-      
-      // Usar métodos UTC para evitar conversión de zona horaria
-      const weekday = weekdays[date.getUTCDay()]
-      const month = months[date.getUTCMonth()]
-      const day = date.getUTCDate().toString().padStart(2, '0')
-      const year = date.getUTCFullYear()
-      
-      return `${weekday}, ${day} ${month} ${year}`
-    } catch (error) {
-      console.error('Error formateando fecha:', ymd, error)
-      return ymd
-    }
-  }
+  // Usar función centralizada para formateo de fechas
+  const formatYmdStatic = formatDateForDisplay
   
   // Formulario de crear/editar cita
   const [appointmentForm, setAppointmentForm] = useState<CreateAppointmentForm>({
@@ -905,7 +885,7 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
                           type="date"
                           value={appointmentForm.appointmentDate}
                           onChange={(e) => handleFormChange('appointmentDate', e.target.value)}
-                          min={new Date().toISOString().split('T')[0]}
+                          min={getTodayString()}
                           className="w-full px-3 py-2 bg-white border-2 border-gray-500 rounded-lg text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
                           required
                         />
@@ -1034,7 +1014,7 @@ export default function AdminDashboard({ adminUser }: AdminDashboardProps) {
                           type="date"
                           value={appointmentForm.appointmentDate}
                           onChange={(e) => handleFormChange('appointmentDate', e.target.value)}
-                          min={new Date().toISOString().split('T')[0]}
+                          min={getTodayString()}
                           className="w-full px-3 py-2 bg-white border-2 border-gray-500 rounded-lg text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
                           required
                         />
