@@ -1,11 +1,15 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense, lazy } from 'react'
 import Link from 'next/link'
 import { Settings } from 'lucide-react'
 import { supabase, Specialty, isSupabaseConfigured } from '../lib/supabase'
+import { cache, CACHE_KEYS, CACHE_EXPIRY } from '../lib/cache'
+import { performanceMonitor, PERFORMANCE_KEYS } from '../lib/performance'
 import SpecialtySearch from '../components/SpecialtySearch'
-import DoctorList from '../components/DoctorList'
-import AppointmentBooking from '../components/AppointmentBooking'
+
+// Lazy load components that are not immediately needed
+const DoctorList = lazy(() => import('../components/DoctorList'))
+const AppointmentBooking = lazy(() => import('../components/AppointmentBooking'))
 
 // Datos de ejemplo para mostrar la interfaz cuando Supabase no está configurado
 const mockSpecialties: Specialty[] = [
@@ -46,6 +50,8 @@ export default function Home() {
   const [selectedSpecialty, setSelectedSpecialty] = useState<string | null>(null)
   const [selectedDoctor, setSelectedDoctor] = useState<string | null>(null)
   const [supabaseEnabled, setSupabaseEnabled] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const configured = isSupabaseConfigured()
@@ -56,26 +62,56 @@ export default function Home() {
     } else {
       // Usar datos de ejemplo si Supabase no está configurado
       setSpecialties(mockSpecialties)
+      setLoading(false)
     }
   }, [])
 
   const fetchSpecialties = async () => {
     try {
-      const { data, error } = await supabase
+      setLoading(true)
+      setError(null)
+      performanceMonitor.startTimer(PERFORMANCE_KEYS.SPECIALTIES_LOAD)
+      
+      // Check cache first
+      const cachedSpecialties = cache.get<Specialty[]>(CACHE_KEYS.SPECIALTIES)
+      if (cachedSpecialties) {
+        setSpecialties(cachedSpecialties)
+        setLoading(false)
+        performanceMonitor.endTimer(PERFORMANCE_KEYS.SPECIALTIES_LOAD)
+        return
+      }
+      
+      // Implementar timeout para evitar esperas indefinidas
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout: La conexión está tardando demasiado')), 10000)
+      )
+      
+      const fetchPromise = supabase
         .from('specialties')
         .select('*')
         .order('name')
       
-      if (data) setSpecialties(data)
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any
+      
+      if (data) {
+        setSpecialties(data)
+        // Cache the data for future use
+        cache.set(CACHE_KEYS.SPECIALTIES, data, CACHE_EXPIRY.SPECIALTIES)
+      }
       if (error) {
         console.error('Error fetching specialties:', error)
+        setError('Error al cargar las especialidades')
         // Fallback a datos de ejemplo si hay error
         setSpecialties(mockSpecialties)
       }
     } catch (error) {
       console.error('Error connecting to Supabase:', error)
+      setError('Error de conexión. Mostrando datos de ejemplo.')
       // Usar datos de ejemplo si hay problemas de conexión
       setSpecialties(mockSpecialties)
+    } finally {
+      setLoading(false)
+      performanceMonitor.endTimer(PERFORMANCE_KEYS.SPECIALTIES_LOAD)
     }
   }
 
@@ -111,22 +147,97 @@ export default function Home() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {!selectedSpecialty ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full">
+              <div className="text-center">
+                <div className="animate-spin h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-6"></div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Cargando especialidades médicas...
+                </h3>
+                <p className="text-gray-600 text-sm">
+                  Estamos preparando la mejor atención para ti
+                </p>
+                <div className="mt-4 bg-blue-50 p-3 rounded-lg">
+                  <p className="text-xs text-blue-700">
+                    💡 Tip: La primera carga puede tomar unos segundos
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full border-l-4 border-yellow-400">
+              <div className="text-center">
+                <div className="bg-yellow-100 p-3 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                  <svg className="h-8 w-8 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Problema de conexión
+                </h3>
+                <p className="text-gray-600 text-sm mb-4">
+                  {error}
+                </p>
+                <button
+                  onClick={fetchSpecialties}
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                >
+                  Reintentar
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : !selectedSpecialty ? (
           <SpecialtySearch 
             specialties={specialties}
             onSelectSpecialty={setSelectedSpecialty}
           />
         ) : !selectedDoctor ? (
-          <DoctorList 
-            specialtyId={selectedSpecialty}
-            onSelectDoctor={setSelectedDoctor}
-            onBack={() => setSelectedSpecialty(null)}
-          />
+          <Suspense fallback={
+            <div className="flex items-center justify-center py-16">
+              <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full">
+                <div className="text-center">
+                  <div className="animate-spin h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-6"></div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    Cargando especialistas...
+                  </h3>
+                  <p className="text-gray-600 text-sm">
+                    Preparando la lista de médicos
+                  </p>
+                </div>
+              </div>
+            </div>
+          }>
+            <DoctorList 
+              specialtyId={selectedSpecialty}
+              onSelectDoctor={setSelectedDoctor}
+              onBack={() => setSelectedSpecialty(null)}
+            />
+          </Suspense>
         ) : (
-          <AppointmentBooking 
-            doctorId={selectedDoctor}
-            onBack={() => setSelectedDoctor(null)}
-          />
+          <Suspense fallback={
+            <div className="flex items-center justify-center py-16">
+              <div className="bg-white p-8 rounded-2xl shadow-lg max-w-md w-full">
+                <div className="text-center">
+                  <div className="animate-spin h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-6"></div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    Cargando reserva de turnos...
+                  </h3>
+                  <p className="text-gray-600 text-sm">
+                    Preparando el sistema de citas
+                  </p>
+                </div>
+              </div>
+            </div>
+          }>
+            <AppointmentBooking 
+              doctorId={selectedDoctor}
+              onBack={() => setSelectedDoctor(null)}
+            />
+          </Suspense>
         )}
       </main>
 
