@@ -5,7 +5,7 @@ import {
   createAppointmentForAdmin,
   updateAppointmentForAdmin,
   deleteAppointmentForAdmin 
-} from '../../../src/lib/supabase-admin'
+} from '../../src/lib/supabase-admin'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // La autenticación se maneja en el middleware
