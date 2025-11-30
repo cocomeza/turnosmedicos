@@ -33,7 +33,7 @@ Aplicación web para reserva de turnos médicos construida con Next.js 15 y Supa
 
 1. Clona el repositorio:
 ```bash
-git clone <url-del-repositorio>
+git clone https://github.com/cocomeza/turnosmedicos.git
 cd turnosmedicos
 ```
 
