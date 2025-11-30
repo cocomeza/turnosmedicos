@@ -172,11 +172,7 @@ npm run lint
 
 ### Otros Proveedores
 
-El proyecto puede desplegarse en cualquier plataforma que soporte Next.js:
-- Netlify
-- Railway
-- Render
-- AWS Amplify
+
 
 ## 📚 Documentación Adicional
 
@@ -195,18 +191,3 @@ El proyecto puede desplegarse en cualquier plataforma que soporte Next.js:
 ## 📄 Licencia
 
 Este proyecto es de código abierto y está disponible bajo la licencia MIT.
-
-## ⚠️ Notas Importantes
-
-- El proyecto incluye manejo de errores graceful
-- Se implementó modo de demostración con datos mock cuando Supabase no está disponible
-- La configuración permite fácil migración entre entornos
-- Las políticas RLS están configuradas para seguridad básica
-- Para operaciones administrativas se requiere `SUPABASE_SERVICE_ROLE_KEY`
-
-## 📞 Soporte
-
-Si tienes problemas o preguntas:
-1. Revisa la documentación en `supabase/INSTRUCCIONES_SUPABASE.md`
-2. Verifica que todas las variables de entorno estén configuradas
-3. Asegúrate de que la base de datos esté correctamente configurada
