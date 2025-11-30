@@ -15,18 +15,43 @@ export default function DoctorList({ specialtyId, onSelectDoctor, onBack }: Doct
 
   const fetchDoctors = useCallback(async () => {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('doctors')
-      .select(`
-        *,
-        specialty:specialties(name)
-      `)
-      .eq('specialty_id', specialtyId)
-      .eq('is_active', true)
-    
-    if (data) setDoctors(data)
-    if (error) console.error('Error fetching doctors:', error)
-    setLoading(false)
+    try {
+      console.log('🔍 Buscando doctores para especialidad:', specialtyId)
+      
+      const { data, error } = await supabase
+        .from('doctors')
+        .select(`
+          *,
+          specialty:specialties(name)
+        `)
+        .eq('specialty_id', specialtyId)
+        .eq('is_active', true)
+      
+      console.log('📊 Resultado de la consulta:', { data, error })
+      
+      if (error) {
+        console.error('❌ Error fetching doctors:', error)
+        console.error('Detalles del error:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        })
+      }
+      
+      if (data) {
+        console.log(`✅ Se encontraron ${data.length} doctores`)
+        setDoctors(data)
+      } else {
+        console.log('⚠️ No se recibieron datos (data es null)')
+        setDoctors([])
+      }
+    } catch (err) {
+      console.error('❌ Excepción al buscar doctores:', err)
+      setDoctors([])
+    } finally {
+      setLoading(false)
+    }
   }, [specialtyId])
 
   useEffect(() => {

@@ -91,15 +91,28 @@ export default function AppointmentBooking({ doctorId, onBack }: AppointmentBook
     })
     
     // Obtener horario del médico para ese día
-    const { data: schedule } = await supabase
+    console.log('🔍 Consultando horarios para doctor:', doctorId, 'día:', dayOfWeek)
+    
+    const { data: schedule, error: scheduleError } = await supabase
       .from('doctor_schedules')
       .select('start_time, end_time')
       .eq('doctor_id', doctorId)
       .eq('day_of_week', dayOfWeek)
       .single()
 
+    if (scheduleError) {
+      console.error('❌ Error al buscar horario:', scheduleError)
+      console.error('Detalles:', {
+        message: scheduleError.message,
+        details: scheduleError.details,
+        hint: scheduleError.hint,
+        code: scheduleError.code
+      })
+    }
+
     if (!schedule) {
-      console.log('❌ No hay horario para el día', dayOfWeek)
+      console.log('❌ No hay horario configurado para el día', dayOfWeek, 'del doctor', doctorId)
+      console.log('💡 Verifica que el doctor tenga horarios configurados en la tabla doctor_schedules')
       setAvailableTimes([])
       return
     }
