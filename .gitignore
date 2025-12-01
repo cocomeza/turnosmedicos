@@ -12,6 +12,11 @@
 
 # testing
 /coverage
+/test-results
+/playwright-report
+/playwright/.cache
+/lighthouse-results
+/pa11y-results
 
 # next.js
 /.next/
@@ -39,3 +44,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# test artifacts
+*.png
+*.jpg
+test-results/
+playwright-report/
+lighthouse/

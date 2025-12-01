@@ -6,7 +6,20 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:e2e": "npx playwright test",
+    "test:e2e:ui": "npx playwright test --ui",
+    "test:performance": "npx playwright test tests/performance.spec.ts",
+    "test:visual": "npx playwright test tests/visual.spec.ts",
+    "test:seo": "npx playwright test tests/seo.spec.ts",
+    "test:a11y": "npx playwright test tests/a11y.spec.ts",
+    "test:security": "npm audit --audit-level=moderate",
+    "test:install": "npx playwright install --with-deps chromium",
+    "postinstall": "echo 'Instalación completa. Para tests E2E ejecuta: npm run test:install'"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.8",
@@ -41,9 +54,18 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@axe-core/playwright": "^4.10.0",
+    "@playwright/test": "^1.48.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/user-event": "^14.5.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/ui": "^2.1.8",
     "eslint": "^9",
     "eslint-config-next": "15.5.3",
+    "jsdom": "^25.0.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^2.1.8"
   }
 }
