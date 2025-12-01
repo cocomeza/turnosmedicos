@@ -18,8 +18,7 @@
     "test:seo": "npx playwright test tests/seo.spec.ts",
     "test:a11y": "npx playwright test tests/a11y.spec.ts",
     "test:security": "npm audit --audit-level=moderate",
-    "test:install": "npx playwright install --with-deps chromium",
-    "postinstall": "echo 'Instalación completa. Para tests E2E ejecuta: npm run test:install'"
+    "test:install": "npx playwright install --with-deps chromium"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.8",
