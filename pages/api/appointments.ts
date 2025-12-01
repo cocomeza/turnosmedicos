@@ -4,7 +4,8 @@ import {
   updateAppointmentStatus, 
   createAppointmentForAdmin,
   updateAppointmentForAdmin,
-  deleteAppointmentForAdmin 
+  deleteAppointmentForAdmin,
+  findOrCreatePatient
 } from '../../src/lib/supabase-admin'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -69,15 +70,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'POST') {
     try {
-      const { doctorId, patientId, appointmentDate, appointmentTime, status, notes } = req.body
+      const { doctorId, patientId, patientInfo, appointmentDate, appointmentTime, status, notes } = req.body
 
-      if (!doctorId || !patientId || !appointmentDate || !appointmentTime) {
-        return res.status(400).json({ error: 'Doctor, paciente, fecha y hora son requeridos' })
+      // Validar campos requeridos
+      if (!doctorId || !appointmentDate || !appointmentTime) {
+        return res.status(400).json({ error: 'Doctor, fecha y hora son requeridos' })
+      }
+
+      // Si viene patientInfo, crear o buscar el paciente
+      // Si viene patientId, usarlo directamente
+      let finalPatientId: string
+
+      if (patientInfo) {
+        if (!patientInfo.name || !patientInfo.email) {
+          return res.status(400).json({ error: 'Nombre y email del paciente son requeridos' })
+        }
+
+        const patient = await findOrCreatePatient({
+          name: patientInfo.name,
+          email: patientInfo.email,
+          phone: patientInfo.phone
+        })
+        finalPatientId = patient.id
+      } else if (patientId) {
+        finalPatientId = patientId
+      } else {
+        return res.status(400).json({ error: 'Se requiere patientId o patientInfo' })
       }
 
       const newAppointment = await createAppointmentForAdmin({
         doctorId,
-        patientId,
+        patientId: finalPatientId,
         appointmentDate,
         appointmentTime,
         status,

@@ -413,6 +413,64 @@ export async function createPatientForAdmin(patientData: { name: string; email: 
   return data
 }
 
+export async function findOrCreatePatient(patientData: { name: string; email: string; phone?: string }) {
+  // Buscar paciente por email
+  const { data: existingPatient, error: searchError } = await supabaseAdmin
+    .from('patients')
+    .select('id, name, email, phone')
+    .eq('email', patientData.email.toLowerCase().trim())
+    .single()
+
+  // Si existe, actualizar datos si es necesario y retornar
+  if (existingPatient) {
+    // Actualizar nombre y teléfono si cambiaron
+    const updates: { name?: string; phone?: string } = {}
+    if (patientData.name && patientData.name !== existingPatient.name) {
+      updates.name = patientData.name
+    }
+    if (patientData.phone && patientData.phone !== existingPatient.phone) {
+      updates.phone = patientData.phone
+    }
+
+    if (Object.keys(updates).length > 0) {
+      const { data: updatedPatient, error: updateError } = await supabaseAdmin
+        .from('patients')
+        .update(updates)
+        .eq('id', existingPatient.id)
+        .select()
+        .single()
+
+      if (updateError) {
+        console.error('Error updating patient:', updateError)
+        // Continuar con el paciente existente aunque falle la actualización
+        return existingPatient
+      }
+
+      return updatedPatient || existingPatient
+    }
+
+    return existingPatient
+  }
+
+  // Si no existe, crear nuevo paciente
+  const { data: newPatient, error: createError } = await supabaseAdmin
+    .from('patients')
+    .insert([{
+      name: patientData.name,
+      email: patientData.email.toLowerCase().trim(),
+      phone: patientData.phone || ''
+    }])
+    .select()
+    .single()
+
+  if (createError) {
+    console.error('Error creating patient:', createError)
+    throw createError
+  }
+
+  return newPatient
+}
+
 export async function getAvailableTimesForAdmin(doctorId: string, date: string) {
   // Obtener horario del médico para ese día usando función centralizada
   const dayOfWeek = getDayOfWeek(date)
